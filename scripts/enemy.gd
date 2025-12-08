@@ -3,7 +3,7 @@ class_name Enemy
 
 # Configuration
 const MOVE_SPEED := 3.0
-const DESPAWN_DISTANCE := 5.0
+const DESPAWN_DISTANCE := 50.0  # Increased so they don't despawn immediately
 
 @export var unit_count := 20
 
@@ -11,16 +11,17 @@ const DESPAWN_DISTANCE := 5.0
 @onready var label := $Label3D
 
 func _ready() -> void:
+	add_to_group("enemy")
 	body_entered.connect(_on_body_entered)
 	update_display()
 
 func _physics_process(delta: float) -> void:
-	# Move toward player (negative Z direction)
-	position.z -= MOVE_SPEED * delta
+	# Move from negative Z to positive Z (top to bottom of screen)
+	position.z += MOVE_SPEED * delta
 
-	# Despawn if passed player
+	# Despawn if moved past player (positive Z direction)
 	var player := get_tree().get_first_node_in_group("player")
-	if player and position.z < player.position.z - DESPAWN_DISTANCE:
+	if player and position.z > player.position.z + DESPAWN_DISTANCE:
 		queue_free()
 
 func _on_body_entered(body: Node3D) -> void:

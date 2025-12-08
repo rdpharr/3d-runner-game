@@ -15,8 +15,8 @@ signal unit_count_changed(new_count: int)
 signal game_over
 
 # Node references
-@onready var model := $Character
-@onready var animation := $Character/AnimationPlayer
+@onready var model := $character
+@onready var animation := $character/AnimationPlayer
 
 func _ready() -> void:
 	add_to_group("player")
@@ -27,9 +27,9 @@ func _ready() -> void:
 	if animation:
 		animation.play("walk")
 
-func _physics_process(delta: float) -> void:
-	# Auto-forward movement (constant Z velocity)
-	velocity.z = FORWARD_SPEED
+func _physics_process(_delta: float) -> void:
+	# Player is STATIONARY - doesn't move in Z
+	velocity.z = 0
 
 	# Horizontal mouse following
 	var mouse_pos := get_viewport().get_mouse_position()
