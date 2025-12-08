@@ -159,24 +159,50 @@ func _on_player_entered(player: Player) -> void:
     queue_free()
 ```
 
-### Unit Count System
-- Player has `var unit_count: int`
-- Enemies have `var unit_count: int`
-- Collision: reduce both by minimum of the two
-- Unopened barrels subtract their value
-- Negative gates subtract value
-```gdscript
-func handle_enemy_collision(enemy: Enemy) -> void:
-    var damage := mini(unit_count, enemy.unit_count)
-    unit_count -= damage
-    enemy.unit_count -= damage
-    if enemy.unit_count <= 0:
-        enemy.queue_free()
+### Physical Unit System (Week 2+)
+**Physical Representation:**
+- Player units are physical objects (not HUD counter)
+- Each unit = one small character model
+- Tight swarm formation (crowded look)
+- Enemy groups also spawn as clusters
 
-func handle_unopened_barrel(barrel: Barrel) -> void:
-    unit_count -= barrel.value  # Penalty!
-    barrel.queue_free()
+```gdscript
+# Player manager pattern
+class_name PlayerManager extends Node3D
+
+var player_units: Array[Node3D] = []
+const FORMATION_RADIUS := 1.5
+@export var player_unit_scene: PackedScene
+
+func spawn_player_unit() -> void:
+    var unit := player_unit_scene.instantiate()
+    var angle := randf() * TAU
+    var radius := randf() * FORMATION_RADIUS
+    unit.position = Vector3(cos(angle) * radius, 0, sin(angle) * radius)
+    player_units.append(unit)
+    add_child(unit)
+
+func remove_player_unit() -> void:
+    if player_units.size() > 0:
+        var unit := player_units.pop_back()
+        unit.queue_free()
+
+# Collision destroys physical units
+func handle_enemy_collision(enemy_group: EnemyGroup) -> void:
+    var damage := mini(player_units.size(), enemy_group.enemy_units.size())
+    for i in damage:
+        remove_player_unit()
+        enemy_group.remove_enemy_unit()
 ```
+
+**Scale Guidelines:**
+- Player/Enemy units: 0.3-0.5 (small, many)
+- Collectibles (barrels/gates): 1.0-1.5 (medium, noticeable)
+- Bosses (future): 2.0-3.0 (large, imposing)
+
+**Positioning:**
+- All objects on ground (Y = 0 or slightly above)
+- No floating objects
 
 ### Barrel Two-State System
 Barrels have opened/unopened states:
@@ -442,14 +468,23 @@ The issue is [root cause].
 
 ## Week-by-Week Progression
 
-### Week 1: Movement & Collision
+### Week 1: Movement & Collision ✅ COMPLETE
 - Mouse/touch horizontal movement
-- Forward auto-advance
-- Enemy collision (moving objects)
+- Forward auto-advance (objects move toward stationary player)
+- Enemy collision (HUD-based unit counter)
 - Simple barrel collection
-- UI with unit counter
+- UI with unit counter (top-right)
 
-### Week 2: Shooting & Core Loop
+### Week 2: Physical Units & Shooting
+**Major Refactor:**
+- Replace HUD counter with physical player units
+- Player group manager (spawn/remove units in formation)
+- Enemy groups spawn as clusters
+- All collisions destroy individual units
+- Position all objects on ground
+- Scale properly (units small, collectibles medium)
+
+**New Features:**
 - Auto-shooting projectiles
 - Barrel shoot-to-open mechanic
 - Unopened barrel damage
@@ -483,6 +518,11 @@ This document evolves with the project. Update it when patterns change or new be
 
 ---
 
-**Last Updated:** 2024-12-07 (Design revision)  
-**Project Phase:** Week 1 - Foundation  
-**Major Changes:** Removed lane system, added mouse/touch movement, object movement types, barrel two-state system, negative gates
+**Last Updated:** 2024-12-08 (Physical units revision)
+**Project Phase:** Week 1 Complete, Week 2 Planning
+**Major Changes:**
+- Week 1 complete with HUD-based system
+- Week 2 will refactor to physical unit representation
+- Units spawn as small objects in tight formations (crowded look)
+- Enemy groups spawn as clusters
+- Objects positioned on ground, properly scaled

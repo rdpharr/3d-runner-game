@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(git init:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(claude mcp list:*)",
+      "mcp__godot__get_project_info",
+      "mcp__godot__create_scene",
+      "mcp__godot__run_project",
+      "mcp__godot__get_debug_output",
+      "mcp__godot__stop_project",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

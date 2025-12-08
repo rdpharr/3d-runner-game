@@ -109,80 +109,141 @@ func _physics_process(delta: float) -> void:
 - Differentiating movement types adds strategic variety
 - Speed scaling provides difficulty control
 
-### 3. Unit Count System
+### 3. Unit Count System (Physical Representation)
 
 **Core Mechanic:**
-- Player has integer unit count (starts at 10-20)
-- Display: Large UI counter (top-right corner)
-- All gains/losses are immediate and visible
+- **No HUD counter** - units are physical player objects
+- Each unit = one small player character model
+- Player group moves together (tightly packed formation)
+- Visual representation creates satisfying accumulation
+
+**Physical Player Units:**
+```gdscript
+# Player manager tracks all unit objects
+var player_units: Array[Node3D] = []
+const UNIT_SPACING := 0.3  # Tight formation
+const FORMATION_RADIUS := 1.5  # Circular cluster
+
+func spawn_player_unit() -> void:
+    var unit := player_unit_scene.instantiate()
+    # Position in tight circular formation around center
+    var angle := randf() * TAU
+    var radius := randf() * FORMATION_RADIUS
+    unit.position = Vector3(cos(angle) * radius, 0, sin(angle) * radius)
+    player_units.append(unit)
+    add_child(unit)
+
+func remove_player_unit() -> void:
+    if player_units.size() > 0:
+        var unit := player_units.pop_back()
+        unit.queue_free()
+```
 
 **Gain Units:**
-- **Opened Barrels:** +10 to +50 (shoot to open, then collect)
-- **Positive Gates:** +value when charged and walked through
-- **Multipliers:** Multiply next collection by x2 to x5
+- **Opened Barrels:** Spawn +10 to +50 new player objects
+- **Positive Gates:** Spawn +value new player objects
+- **Multipliers:** Multiply spawned units by x2 to x5
 
 **Lose Units:**
-- **Enemy Collision:** -min(player_count, enemy_count)
-- **Unopened Barrel Collision:** -barrel's value (penalty for not opening)
-- **Negative Gates:** -value when walked through
+- **Enemy Collision:** Destroy min(player_count, enemy_count) player objects
+- **Unopened Barrel Collision:** Destroy value player objects
+- **Negative Gates:** Destroy value player objects
 
 **Game Over:**
-- Player reaches 0 units → Defeat
-- Display final score/distance
+- All player units destroyed (0 remaining) → Defeat
+- Display final count/distance
 - Option to restart
 
-**Design Rationale:**
-- Simple integer math (no fractions)
-- Visible numbers create clear risk/reward
-- Multiple sources of loss create tension
-- Unopened barrels punish poor shooting prioritization
+**Visual Design:**
+- Player units: Small humanoid models (scale 0.3-0.5)
+- Tightly clustered (creates "crowd" feel)
+- Move together as formation (follow leader)
+- Individual units can be hit/destroyed
 
-### 4. Combat System
+**Design Rationale:**
+- Physical representation more satisfying than numbers
+- Crowded swarm creates visual impact
+- Seeing units destroyed/added is visceral feedback
+- No UI needed - count is obvious from visual
+- Bigger swarm = more impressive = more risk
+
+### 4. Combat System (Enemy Groups)
 
 **Enemy Properties:**
 ```gdscript
-class_name Enemy extends Area3D
+# Enemy manager spawns groups
+class_name EnemyGroup extends Node3D
 
+@export var enemy_unit_scene: PackedScene
 @export var unit_count := 20
-@export var move_speed := 3.0  # Toward player
+@export var move_speed := 3.0
+var enemy_units: Array[Node3D] = []
+
+func _ready() -> void:
+    spawn_enemy_units(unit_count)
+
+func spawn_enemy_units(count: int) -> void:
+    for i in count:
+        var unit := enemy_unit_scene.instantiate()
+        # Tight cluster formation (like player)
+        var angle := randf() * TAU
+        var radius := randf() * 1.0  # Tighter than player
+        unit.position = Vector3(cos(angle) * radius, 0, sin(angle) * radius)
+        enemy_units.append(unit)
+        add_child(unit)
 ```
 
 **Collision Resolution:**
 ```gdscript
-func on_collision_with_player(player: Player) -> void:
-    var damage := mini(player.unit_count, unit_count)
-    player.unit_count -= damage
-    unit_count -= damage
-    
-    if unit_count <= 0:
-        queue_free()  # Enemy destroyed
-    
-    if player.unit_count <= 0:
-        player.game_over()
+func on_collision_with_player(player_manager: PlayerManager) -> void:
+    var damage := mini(player_manager.player_units.size(), enemy_units.size())
+
+    # Destroy units from both sides
+    for i in damage:
+        player_manager.remove_player_unit()
+        remove_enemy_unit()
+
+    if enemy_units.size() <= 0:
+        queue_free()  # Enemy group eliminated
+
+    if player_manager.player_units.size() <= 0:
+        player_manager.game_over()
 ```
 
 **Shooting Enemies:**
-- Projectiles reduce enemy unit_count
-- Reduced enemies easier to handle in collision
-- Can completely destroy before collision
+- Projectiles destroy individual enemy units
+- Reduced enemy groups easier to handle
+- Can eliminate entire group before collision
 
 **Enemy Types (Future):**
-- **Weak:** 5-15 units, faster movement
-- **Standard:** 20-30 units, moderate speed
-- **Strong:** 40-60 units, slower but tankier
-- **Elite:** 80-100 units, very slow, boss-like
+- **Weak Groups:** 5-15 units, faster movement
+- **Standard Groups:** 20-30 units, moderate speed
+- **Strong Groups:** 40-60 units, slower but tankier
+- **Boss:** Single large unit (different scale, high HP)
+
+**Visual Design:**
+- Enemy units: Small models (same scale as player units)
+- Tightly clustered (creates threat impression)
+- Different color (red) to distinguish from player
+- Groups move together toward player
+
+**Object Scale Guidelines:**
+- **Player/Enemy units:** Scale 0.3-0.5 (small, many)
+- **Collectibles (barrels/gates):** Scale 1.0-1.5 (medium, noticeable)
+- **Bosses (future):** Scale 2.0-3.0 (large, imposing)
 
 **Visual Feedback:**
-- Damage numbers (floating text)
-- Screen shake on collision
-- Particle burst at collision
+- Individual units destroyed (pop/fade)
+- Screen shake on group collision
+- Particle burst at collision points
 - Sound effect (impact)
 
 **Design Rationale:**
-- Mutual damage creates risk even when stronger
-- Shooting before collision is strategic advantage
-- Moving enemies create dynamic threat
-- Visual feedback makes combat impactful
+- Physical enemy groups match player visual style
+- Crowded formations create tension
+- Individual unit destruction is satisfying
+- Mutual elimination is visceral and clear
+- No need for HP numbers - you see the units
 
 ### 5. Collectible Systems
 
@@ -214,11 +275,15 @@ func on_projectile_hit() -> void:
         update_visual()  # Change from "?" to "+15"
         # Play open sound/effect
 
-func on_player_collision(player: Player) -> void:
+func on_player_collision(player_manager: PlayerManager) -> void:
     if is_open:
-        player.unit_count += value  # Reward
+        # Spawn new player units
+        for i in value:
+            player_manager.spawn_player_unit()
     else:
-        player.unit_count -= value  # Penalty!
+        # Destroy player units as penalty
+        for i in value:
+            player_manager.remove_player_unit()
     queue_free()
 ```
 
@@ -264,8 +329,15 @@ func on_projectile_hit() -> void:
     current_value += VALUE_PER_HIT
     update_display()
 
-func on_player_entered(player: Player) -> void:
-    player.unit_count += current_value  # Can subtract if negative
+func on_player_entered(player_manager: PlayerManager) -> void:
+    if current_value > 0:
+        # Spawn player units
+        for i in current_value:
+            player_manager.spawn_player_unit()
+    else:
+        # Destroy player units
+        for i in abs(current_value):
+            player_manager.remove_player_unit()
     queue_free()
 ```
 
@@ -319,11 +391,13 @@ func on_multiplier_entered(multiplier: int) -> void:
     active_multiplier = multiplier
     # Show UI indicator: "NEXT: x5"
 
-func collect_item(value: int) -> void:
+func collect_item(value: int, player_manager: PlayerManager) -> void:
     var final_value := value * active_multiplier
-    unit_count += final_value
+    # Spawn multiplied units
+    for i in final_value:
+        player_manager.spawn_player_unit()
     active_multiplier = 1  # Reset after use
-    # Show multiplied number: "+50 (x5) = +250"
+    # Show visual feedback: "+50 (x5) = +250"
 ```
 
 **Visual Design:**
@@ -514,13 +588,17 @@ Purpose: All options bad, minimize damage
 
 ### UI Design
 
-**HUD Elements:**
+**HUD Elements (Minimal):**
 ```
-Top-Right: Unit Count (LARGE, always visible)
-Top-Center: Active Multiplier indicator (when active)
-Center: Damage/collection numbers (floating text)
+Top-Center: Active Multiplier indicator (when active) - only if needed
+Center: Floating effect text ("+50 units!", "x5 multiplier!")
 Bottom: Distance/Score (small)
 ```
+
+**No Unit Counter:**
+- Unit count visible through physical player objects
+- Count is self-evident from swarm size
+- Cleaner UI, more immersive
 
 **Fonts:**
 - Bold, sans-serif
@@ -531,29 +609,34 @@ Bottom: Distance/Score (small)
 - Screen shake (collisions, both positive and negative)
 - Particle effects (opening barrels, collection, combat)
 - Sound effects (all actions)
-- Floating numbers (damage, collection, multiplied values)
-- Visual trail behind player
+- Floating effect text (significant events only)
+- Visual trails behind player swarm
 
 ---
 
 ## Scope Management
 
-### Week 1: Movement & Collision MVP
-✅ Must Have:
+### Week 1: Movement & Collision MVP ✅ COMPLETE
 - Player forward + horizontal mouse movement
-- Enemy collision (unit reduction)
-- Barrel collection (simple +units, no shoot-to-open yet)
-- UI (unit counter)
+- Enemy collision (unit reduction via HUD counter)
+- Barrel collection (simple +units via HUD)
+- UI with unit counter (top-right HUD)
 - Moving objects system (enemies/barrels toward player)
+- Camera follow system
+- Ground collision
 
-❌ Not Week 1:
-- Shooting system (Week 2)
-- Barrel shoot-to-open (Week 2)
-- Gates (Week 2)
-- Multipliers (Week 2)
+### Week 2: Physical Units & Shooting
+**Major Refactor:**
+- Replace HUD counter with physical player units
+- Player group manager (spawn/remove units)
+- Physical player unit models in tight formation
+- Enemy groups (spawned as clusters)
+- Refactor collision to destroy individual units
+- Position all objects on ground (not floating)
+- Scale: units small (0.3-0.5), collectibles medium (1.0-1.5)
 
-### Week 2: Shooting & Core Loop
-- Projectile auto-fire
+**New Features:**
+- Projectile auto-fire system
 - Barrel shoot-to-open mechanic
 - Unopened barrel damage
 - Gate system (shoot to charge)
@@ -631,7 +714,13 @@ Bottom: Distance/Score (small)
 
 ---
 
-**Document Version:** 2.0  
-**Last Updated:** 2024-12-07  
-**Status:** Design revised per developer feedback  
-**Changes:** Removed lane system, added mouse/touch movement, object movement types, shoot-to-open barrels, negative gates, difficulty through speed/availability
+**Document Version:** 3.0
+**Last Updated:** 2024-12-08
+**Status:** Major revision - physical unit representation
+**Changes:**
+- Removed HUD unit counter, replaced with physical player objects
+- Player units in tight swarm formation (crowded look)
+- Enemy groups spawn as clusters (same crowded style)
+- All units small scale (0.3-0.5), collectibles medium (1.0-1.5)
+- Objects positioned on ground, not floating
+- Unit spawning/destruction for all gains/losses
