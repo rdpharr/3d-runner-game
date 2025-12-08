@@ -22,8 +22,9 @@ Shoot gates to open (±units) → Pass multipliers (boost collection) → Repeat
 ### 1. Player Movement System
 
 **Forward Movement:**
-- Constant forward velocity (Z-axis positive)
-- No player control over forward speed
+- Player is STATIONARY at Z=0
+- Objects move toward player (negative Z to positive Z)
+- Creates visual effect of player running while maintaining simple camera
 - Speed increases difficulty
 
 **Horizontal Movement:**
@@ -34,34 +35,40 @@ Shoot gates to open (±units) → Pass multipliers (boost collection) → Repeat
 - Constraint: Cannot move outside playable bounds
 
 **Camera Setup:**
-- Position: (0, 10, -5) relative to player
-- Rotation: -45° X-axis (looking down/isometric)
-- FOV: 70° (default)
-- Smooth follow with minimal lag
+- Position: player.position + Vector3(0, 12, 5) (slightly behind at positive Z)
+- Rotation: Vector3(-45, 180, 0) (tilted down, facing negative Z)
+- Result: Player at bottom of screen, enemies at top
+- Camera follows player horizontally
 
 **Design Rationale:**
 - Mouse/touch control feels more direct and mobile-friendly
 - 3-object width creates meaningful positioning choices
-- Auto-forward keeps focus on horizontal decisions
-- Isometric view provides clear visibility of oncoming objects
+- Stationary player simplifies camera and physics
+- Objects moving toward player creates urgency and visual flow
 
 **Implementation Notes:**
 ```gdscript
-# Mouse following (PC)
-const PLAYABLE_WIDTH := 6.0  # Total width
+# Player (scripts/player_runner.gd)
+const PLAYABLE_WIDTH := 6.0
 const MOVEMENT_SMOOTHING := 0.2
 
-func _process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
+    # Player is STATIONARY - doesn't move in Z
+    velocity.z = 0
+
+    # Horizontal mouse following
     var mouse_pos := get_viewport().get_mouse_position()
     var viewport_size := get_viewport().get_visible_rect().size
-    
+
     # Map mouse X (0 to screen width) to game X (-3 to +3)
     var normalized_x := (mouse_pos.x / viewport_size.x) * 2.0 - 1.0
     var target_x := normalized_x * (PLAYABLE_WIDTH / 2.0)
     target_x = clamp(target_x, -PLAYABLE_WIDTH/2, PLAYABLE_WIDTH/2)
-    
-    # Smooth movement
+
+    # Smooth horizontal movement
     position.x = lerp(position.x, target_x, MOVEMENT_SMOOTHING)
+
+    move_and_slide()
 ```
 
 ### 2. Object Movement System
@@ -69,33 +76,36 @@ func _process(delta: float) -> void:
 Objects come in two categories based on movement:
 
 **Moving Objects (Advance Toward Player):**
-- **Enemies:** Move on Z-axis toward player
-- **Barrels:** Move on Z-axis toward player
+- **Enemies:** Spawn at negative Z, move toward positive Z (top to bottom of screen)
+- **Barrels:** Spawn at negative Z, move toward positive Z (top to bottom of screen)
 - Speed affects difficulty (faster = harder to aim/dodge)
 - Destroyed when passing player or on interaction
 
-**Static Objects (Attached to Ground):**
-- **Gates:** Fixed Z position, player advances toward them
+**Static Objects (Attached to Ground - Future):**
+- **Gates:** Fixed Z position on ground
 - **Multiplier Zones:** Floor panels at fixed Z position
-- Player moves through them as they advance
+- Player advances toward them (future feature)
 
 **Movement Speed:**
 ```gdscript
-# Enemy/Barrel movement
-const OBJECT_BASE_SPEED := 3.0  # Toward player
-var object_speed := OBJECT_BASE_SPEED
+# Enemy/Barrel movement (scripts/enemy.gd, barrel_simple.gd)
+const MOVE_SPEED := 3.0
+const DESPAWN_DISTANCE := 50.0
 
 func _physics_process(delta: float) -> void:
-    position.z -= object_speed * delta  # Negative = toward player
-    
-    # Destroy if passed player
-    if position.z < player.position.z - 5.0:
+    # Move from negative Z to positive Z (top to bottom of screen)
+    position.z += MOVE_SPEED * delta
+
+    # Despawn if moved past player (positive Z direction)
+    var player := get_tree().get_first_node_in_group("player")
+    if player and position.z > player.position.z + DESPAWN_DISTANCE:
         queue_free()
 ```
 
 **Design Rationale:**
 - Moving objects create urgency and dynamic targets
-- Static gates/multipliers create positional objectives
+- Top-to-bottom movement feels natural (like falling toward player)
+- Player stationary at Z=0, objects spawn at negative Z (e.g., -10, -15, -20)
 - Differentiating movement types adds strategic variety
 - Speed scaling provides difficulty control
 

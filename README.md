@@ -14,15 +14,15 @@ A Godot 4 3D runner game where players manage unit count through strategic posit
 ## Core Mechanics
 
 ### Player Movement
-- **Forward:** Auto-advance at constant speed (Z-axis)
+- **Forward:** Player stationary at Z=0 (objects move toward player)
 - **Horizontal:** Follow mouse position (PC) or finger touch (mobile)
 - Playable width: 3 objects wide (~6 units, -3 to +3)
 - Smooth responsive movement
 
 ### Object Movement
 Objects move in two ways:
-- **Moving:** Enemies and barrels advance toward player
-- **Static:** Gates and multipliers attached to ground
+- **Moving:** Enemies and barrels spawn at negative Z, move toward positive Z (top to bottom of screen)
+- **Static:** Gates and multipliers attached to ground (future feature)
 
 ### Combat System
 - **Enemy Collision:** Both player and enemy lose min(player_units, enemy_units)
@@ -65,26 +65,23 @@ Objects move in two ways:
 
 ## Current Status
 
-**Phase:** Week 1 - Foundation Setup (In Progress)
-**Build Status:** Core systems implemented, integration pending
+**Phase:** Week 1 - Foundation Complete ✓
+**Build Status:** All core systems working
 
-### Completed
+### Completed - Week 1
 - [x] Initial repository setup
 - [x] Git configuration and GitHub repository created
 - [x] Documentation structure (CLAUDE.md, DESIGN.md, README.md)
 - [x] Development workflow established
 - [x] Asset import (Kenney Tower Defense Kit + Starter Kit 3D Platformer)
-- [x] Player system (auto-forward + mouse following movement)
-- [x] Enemy system (UFO models, collision, unit count)
-- [x] Collectible system (crystals, simple collection)
-
-### Week 1 Goals (60% Complete)
-- [x] Player movement (auto-forward + mouse following)
-- [x] Enemy collision (moving toward player)
-- [x] Simple barrel collection (no shoot-to-open yet)
-- [ ] Basic 3D scene (ground, camera, lighting)
-- [ ] UI (unit counter)
-- [ ] First playable level
+- [x] Player system (stationary with horizontal mouse control)
+- [x] Enemy system (moving from top to bottom, collision, unit count)
+- [x] Collectible system (barrels, simple collection)
+- [x] Basic 3D scene (ground, camera, lighting, spawner)
+- [x] UI (unit counter with signal-based updates)
+- [x] Camera orientation (player at bottom, enemies at top)
+- [x] Collision system (scaled objects with matching collision shapes)
+- [x] HUD integration (real-time unit count updates)
 
 ## Technology Stack
 
@@ -222,14 +219,14 @@ See [DESIGN.md](DESIGN.md) for detailed design documentation.
 - Check Output panel for errors/warnings
 
 **Test Checklist (Week 1):**
-- [ ] Player moves forward automatically
-- [ ] Player follows mouse horizontally
-- [ ] Enemies move toward player
-- [ ] Enemy collision reduces unit count
-- [ ] Simple barrel collection works
-- [ ] UI updates correctly
-- [ ] Game over at 0 units
-- [ ] No runtime errors
+- [x] Player stationary, follows mouse horizontally
+- [x] Enemies move from top to bottom toward player
+- [x] Enemy collision reduces both unit counts
+- [x] Simple barrel collection works
+- [x] UI updates correctly in real-time
+- [x] Collision accuracy (objects touch when they visually overlap)
+- [x] Object scaling (20% size with matching collision shapes)
+- [ ] Game over at 0 units (not yet implemented)
 
 ## Performance Targets
 
@@ -292,13 +289,22 @@ This is a learning project, not for commercial release.
 
 ## Changelog
 
-### 2024-12-07 - Session 1 (In Progress)
+### 2024-12-08 - Session 2: Week 1 Complete
+- Fixed camera orientation (player at bottom, enemies at top)
+- Corrected movement system (player stationary, objects move negative to positive Z)
+- Fixed HUD initialization and signal connection
+- Scaled all objects to 20% with matching collision shapes (radius 1.5 → effective 0.3)
+- Collision detection working accurately
+- Week 1 complete: All core mechanics functional
+
+### 2024-12-07 - Session 1
 - GitHub repository created and configured
 - Imported Kenney assets (Tower Defense Kit + Starter Kit 3D Platformer)
 - Created player system (player.tscn, player_runner.gd)
 - Created enemy system (enemy_basic.tscn, enemy.gd)
 - Created collectible system (barrel_simple.tscn, barrel_simple.gd)
-- Week 1 foundation 60% complete
+- Created spawner system (week1_spawner.gd, week1_test.tscn)
+- Week 1 foundation established
 
 ### 2024-12-07 (v2.0)
 - Major design revision based on developer feedback
@@ -315,4 +321,4 @@ This is a learning project, not for commercial release.
 
 ---
 
-**Next Session:** Create UI scene → Create spawner script → Set up main scene → Test and commit Week 1 foundation
+**Next Session:** Week 2 - Shooting system, shoot-to-open barrels, gates, negative gates
