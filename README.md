@@ -65,20 +65,24 @@ Objects move in two ways:
 
 ## Current Status
 
-**Phase:** Week 1 - Foundation Setup  
-**Build Status:** Pre-development (documentation complete, awaiting approval)
+**Phase:** Week 1 - Foundation Setup (In Progress)
+**Build Status:** Core systems implemented, integration pending
 
 ### Completed
 - [x] Initial repository setup
-- [x] Git configuration
+- [x] Git configuration and GitHub repository created
 - [x] Documentation structure (CLAUDE.md, DESIGN.md, README.md)
-- [x] Development workflow established (GIT_WORKFLOW.md)
+- [x] Development workflow established
+- [x] Asset import (Kenney Tower Defense Kit + Starter Kit 3D Platformer)
+- [x] Player system (auto-forward + mouse following movement)
+- [x] Enemy system (UFO models, collision, unit count)
+- [x] Collectible system (crystals, simple collection)
 
-### Week 1 Goals
+### Week 1 Goals (60% Complete)
+- [x] Player movement (auto-forward + mouse following)
+- [x] Enemy collision (moving toward player)
+- [x] Simple barrel collection (no shoot-to-open yet)
 - [ ] Basic 3D scene (ground, camera, lighting)
-- [ ] Player movement (auto-forward + mouse following)
-- [ ] Enemy collision (moving toward player)
-- [ ] Simple barrel collection (no shoot-to-open yet)
 - [ ] UI (unit counter)
 - [ ] First playable level
 
@@ -90,9 +94,8 @@ Objects move in two ways:
 - Renderer: Forward+ (for 3D with good performance)
 
 **Assets:** Kenney.nl
-- Tower Defense Kit (3D models)
-- UI Pack (interface elements)
-- Sound Effects (audio)
+- Tower Defense Kit (UFO enemies, crystals, tiles - 160 models)
+- Starter Kit 3D Platformer (animated character, coins, environment)
 - License: CC0 (public domain)
 
 **Development Tools:**
@@ -105,22 +108,32 @@ Objects move in two ways:
 ```
 game_clone/
 ├── scenes/              # Godot scene files (.tscn)
-│   ├── main.tscn       # Main game scene
-│   ├── player.tscn     # Player character
-│   ├── enemies/        # Enemy variants
-│   └── collectibles/   # Barrels, gates, etc.
+│   ├── main.tscn       # Main game scene (from Starter Kit)
+│   ├── player.tscn     # Player character (CharacterBody3D + character.glb)
+│   ├── enemies/
+│   │   └── enemy_basic.tscn  # UFO enemy (Area3D + enemy-ufo-a.glb)
+│   └── collectibles/
+│       └── barrel_simple.tscn  # Crystal collectible (Area3D + detail-crystal.glb)
 ├── scripts/            # GDScript files (.gd)
-│   ├── player.gd
-│   ├── spawners/       # Level/object spawners
-│   └── managers/       # Game systems
+│   ├── player_runner.gd  # Runner-specific player controller
+│   ├── enemy.gd          # Enemy behavior
+│   ├── barrel_simple.gd  # Collectible behavior
+│   ├── spawners/         # Level/object spawners (pending)
+│   └── managers/         # Game systems (pending)
 ├── assets/
-│   ├── models/         # .glb 3D models
-│   ├── audio/          # .wav, .ogg sounds
-│   └── textures/       # .png images
-├── docs/               # Development documentation
-├── CLAUDE.md           # AI assistant guidelines
-├── DESIGN.md           # Game design documentation
-└── README.md           # This file
+│   ├── models/           # .glb 3D models (320 files total)
+│   │   ├── character.glb # Animated player character
+│   │   ├── enemy-ufo-*.glb  # UFO enemies (a/b/c/d variants)
+│   │   ├── detail-crystal.glb  # Collectible crystal
+│   │   ├── tile.glb      # Ground tiles
+│   │   └── [158 more models...]
+│   ├── audio/            # Audio files (empty)
+│   └── textures/         # Textures (colormap.png, variation-a.png)
+├── docs/                 # Development documentation
+│   └── Week_1_Plan.md    # Week 1 implementation plan
+├── CLAUDE.md             # AI assistant guidelines
+├── DESIGN.md             # Game design documentation
+└── README.md             # This file
 ```
 
 ## Getting Started
@@ -128,20 +141,16 @@ game_clone/
 ### Prerequisites
 1. Godot 4.3+ installed
 2. Git installed and configured
-3. Kenney Tower Defense Kit downloaded
 
 ### Setup
 ```bash
 # Clone repository
-git clone <repository-url>
-cd game_clone
+git clone https://github.com/rdpharr/3d-runner-game.git
+cd 3d-runner-game
 
 # Open in Godot
 # File > Open Project > Select game_clone folder
-
-# Import Kenney assets
-# Copy .glb files to assets/models/
-# Godot will auto-import
+# Assets are already imported and ready to use
 ```
 
 ### Development Workflow
@@ -277,11 +286,19 @@ This is a learning project, not for commercial release.
 
 ## Contact
 
-**Developer:** Roger  
-**Project Start:** December 2024  
-**Repository:** [GitHub URL - TBD]
+**Developer:** Roger
+**Project Start:** December 2024
+**Repository:** https://github.com/rdpharr/3d-runner-game
 
 ## Changelog
+
+### 2024-12-07 - Session 1 (In Progress)
+- GitHub repository created and configured
+- Imported Kenney assets (Tower Defense Kit + Starter Kit 3D Platformer)
+- Created player system (player.tscn, player_runner.gd)
+- Created enemy system (enemy_basic.tscn, enemy.gd)
+- Created collectible system (barrel_simple.tscn, barrel_simple.gd)
+- Week 1 foundation 60% complete
 
 ### 2024-12-07 (v2.0)
 - Major design revision based on developer feedback
@@ -298,4 +315,4 @@ This is a learning project, not for commercial release.
 
 ---
 
-**Next Steps:** Review documentation → Create Godot project → Initial commit → Begin Week 1
+**Next Session:** Create UI scene → Create spawner script → Set up main scene → Test and commit Week 1 foundation
