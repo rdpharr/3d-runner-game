@@ -1,7 +1,7 @@
-# Claude Code Best Practices - 3D Runner Game
+# Claude Code Best Practices - 2D Overhead Runner Game
 
 ## Project Context
-This is a 3D mobile runner/auto-battle game clone built in Godot 4. The developer (Roger) is an experienced Python coder learning game development through building rather than tutorials. All assets are free from Kenney.nl.
+This is a 2D overhead mobile runner/auto-battle game clone built in Godot 4. The developer (Roger) is an experienced Python coder learning game development through building rather than tutorials. All assets are free from Kenney.nl.
 
 ## Development Philosophy
 - **Build-first approach**: Generate complete, working code rather than snippets
@@ -69,19 +69,19 @@ game_clone/
 
 ## Common Godot 4 Patterns
 
-### Movement & Physics
-- Use `CharacterBody3D` for player (has collision resolution)
-- Use `Area3D` for triggers and collectibles (overlap detection)
-- Use `StaticBody3D` for environment (ground, walls)
+### Movement & Physics (2D)
+- Use `CharacterBody2D` for player (has collision resolution)
+- Use `Area2D` for triggers and collectibles (overlap detection)
+- Use `StaticBody2D` for environment (walls, boundaries)
 - Always call `move_and_slide()` in `_physics_process`
 
 ### Collision Detection
 ```gdscript
-# For Area3D (triggers/collectibles)
+# For Area2D (triggers/collectibles)
 func _ready() -> void:
     body_entered.connect(_on_body_entered)
 
-func _on_body_entered(body: Node3D) -> void:
+func _on_body_entered(body: Node2D) -> void:
     if body.is_in_group("player"):
         # Handle collision
         pass
@@ -116,44 +116,59 @@ player.unit_count_changed.connect(_on_player_units_changed)
 
 ### Mouse/Touch Movement System
 - Player follows mouse X position (PC) or touch X (mobile)
-- Playable width: 6.0 units (-3.0 to +3.0)
+- Player stays at bottom of screen (stationary in Y)
 - Smooth lerp for responsive feel
 ```gdscript
-const PLAYABLE_WIDTH := 6.0
 const MOVEMENT_SMOOTHING := 0.2
 
-func _process(delta: float) -> void:
+func _physics_process(delta: float) -> void:
     var mouse_pos := get_viewport().get_mouse_position()
     var viewport_size := get_viewport().get_visible_rect().size
-    
-    # Map mouse X (0 to screen width) to game X (-3 to +3)
-    var normalized_x := (mouse_pos.x / viewport_size.x) * 2.0 - 1.0
-    var target_x := normalized_x * (PLAYABLE_WIDTH / 2.0)
-    target_x = clamp(target_x, -PLAYABLE_WIDTH/2, PLAYABLE_WIDTH/2)
-    
-    # Smooth movement
+
+    # Player is stationary in Y (bottom of screen)
+    velocity.y = 0
+
+    # Map mouse X directly to game X
+    var target_x := mouse_pos.x
+    target_x = clamp(target_x, 50, viewport_size.x - 50)
+
+    # Smooth horizontal movement
     position.x = lerp(position.x, target_x, MOVEMENT_SMOOTHING)
+
+    move_and_slide()
 ```
 
 ### Object Movement System
-Objects are either moving (toward player) or static (attached to ground):
+Objects have different movement behaviors:
 
-**Moving Objects (Enemies, Barrels):**
+**Enemies (Chase Player):**
 ```gdscript
-const OBJECT_SPEED := 3.0  # Toward player
+const CHASE_SPEED := 100.0  # Pixels per second
 
 func _physics_process(delta: float) -> void:
-    position.z -= OBJECT_SPEED * delta  # Negative = toward player
-    
-    # Destroy if passed player
-    if position.z < player_z - 5.0:
+    var player := get_tree().get_first_node_in_group("player")
+    if player:
+        # Move toward player position
+        var direction := (player.position - position).normalized()
+        position += direction * CHASE_SPEED * delta
+```
+
+**Collectibles (Scroll Down, Can Miss):**
+```gdscript
+const SCROLL_SPEED := 150.0  # Pixels per second
+
+func _physics_process(delta: float) -> void:
+    # Move straight down
+    position.y += SCROLL_SPEED * delta
+
+    # Despawn if off screen
+    if position.y > get_viewport_rect().size.y + 50:
         queue_free()
 ```
 
-**Static Objects (Gates, Multipliers):**
+**Static Objects (Gates, Multipliers - Future):**
 ```gdscript
-# No movement - player advances toward them
-# Destroy after player passes through
+# Fixed position - player intercepts them
 func _on_player_entered(player: Player) -> void:
     apply_effect(player)
     queue_free()
@@ -162,23 +177,23 @@ func _on_player_entered(player: Player) -> void:
 ### Physical Unit System (Week 2+)
 **Physical Representation:**
 - Player units are physical objects (not HUD counter)
-- Each unit = one small character model
+- Each unit = one small character sprite
 - Tight swarm formation (crowded look)
 - Enemy groups also spawn as clusters
 
 ```gdscript
 # Player manager pattern
-class_name PlayerManager extends Node3D
+class_name PlayerManager extends Node2D
 
-var player_units: Array[Node3D] = []
-const FORMATION_RADIUS := 1.5
+var player_units: Array[Node2D] = []
+const FORMATION_RADIUS := 30.0  # Pixels
 @export var player_unit_scene: PackedScene
 
 func spawn_player_unit() -> void:
     var unit := player_unit_scene.instantiate()
     var angle := randf() * TAU
     var radius := randf() * FORMATION_RADIUS
-    unit.position = Vector3(cos(angle) * radius, 0, sin(angle) * radius)
+    unit.position = Vector2(cos(angle) * radius, sin(angle) * radius)
     player_units.append(unit)
     add_child(unit)
 
@@ -196,39 +211,54 @@ func handle_enemy_collision(enemy_group: EnemyGroup) -> void:
 ```
 
 **Scale Guidelines:**
-- Player/Enemy units: 0.3-0.5 (small, many)
-- Collectibles (barrels/gates): 1.0-1.5 (medium, noticeable)
-- Bosses (future): 2.0-3.0 (large, imposing)
+- Player/Enemy units: 16x16 to 24x24 pixels (small, many)
+- Collectibles (barrels/gates): 48x48 to 64x64 pixels (medium, noticeable)
+- Bosses (future): 96x96 to 128x128 pixels (large, imposing)
 
-**Positioning:**
-- All objects on ground (Y = 0 or slightly above)
-- No floating objects
-
-### Barrel Two-State System
-Barrels have opened/unopened states:
+### Barrel Multi-Hit System
+Barrels require multiple bullet hits to open:
 ```gdscript
-class_name Barrel extends Area3D
+class_name Barrel extends Area2D
 
-@export var value := 15
+@export var value := 15  # Units granted when collected
+@export var bullets_required := 3  # Hits needed to open
+var bullets_remaining := bullets_required
 var is_open := false
+
+@onready var value_label := $ValueLabel  # Shows "+15"
+@onready var bullets_label := $BulletsLabel  # Shows "3" -> "2" -> "1"
+
+func _ready() -> void:
+    update_visual()
 
 func on_projectile_hit() -> void:
     if not is_open:
-        is_open = true
-        update_visual()  # Change from "?" to "+15"
+        bullets_remaining -= 1
+        if bullets_remaining <= 0:
+            is_open = true
+            bullets_remaining = 0
+        update_visual()
 
-func on_player_collision(player: Player) -> void:
+func update_visual() -> void:
+    value_label.text = "+" + str(value)
+    bullets_label.text = str(bullets_remaining) if not is_open else ""
+
+func on_player_collision(player_manager: PlayerManager) -> void:
     if is_open:
-        player.unit_count += value  # Reward
+        # Spawn units
+        for i in value:
+            player_manager.spawn_player_unit()
     else:
-        player.unit_count -= value  # Penalty!
+        # Penalty for unopened
+        for i in value:
+            player_manager.remove_player_unit()
     queue_free()
 ```
 
 ### Gate Accumulation System
 Gates can start positive, zero, or negative:
 ```gdscript
-class_name Gate extends Area3D
+class_name Gate extends Area2D
 
 @export var starting_value := 0  # Can be negative
 var current_value := starting_value
@@ -238,8 +268,13 @@ func on_projectile_hit() -> void:
     current_value += VALUE_PER_HIT
     update_display()
 
-func on_player_entered(player: Player) -> void:
-    player.unit_count += current_value  # Can subtract if negative
+func on_player_entered(player_manager: PlayerManager) -> void:
+    if current_value > 0:
+        for i in current_value:
+            player_manager.spawn_player_unit()
+    else:
+        for i in abs(current_value):
+            player_manager.remove_player_unit()
     queue_free()
 ```
 
@@ -247,7 +282,7 @@ func on_player_entered(player: Player) -> void:
 Create manager scripts for procedural placement:
 ```gdscript
 # spawner.gd
-extends Node3D
+extends Node2D
 
 @export var enemy_scene: PackedScene
 @export var spawn_data: Array[Dictionary] = []
@@ -273,16 +308,10 @@ func spawn_object(data: Dictionary) -> void:
 
 ### Common Issues & Solutions
 
-**Player falls through ground:**
-```gdscript
-# Add StaticBody3D with CollisionShape3D to ground
-# Ensure player's CollisionShape3D is properly sized
-```
-
 **Collision not detecting:**
 ```gdscript
 # Checklist:
-# 1. Both nodes have CollisionShape3D?
+# 1. Both nodes have CollisionShape2D?
 # 2. Shapes are sized correctly? (not 0)
 # 3. Layers/masks are compatible?
 # 4. Signal is connected?
@@ -370,7 +399,7 @@ Before committing, verify:
 ### Object Pooling Pattern
 ```gdscript
 # For bullets, effects, enemies, barrels
-var pool: Array[Node3D] = []
+var pool: Array[Node2D] = []
 const POOL_SIZE := 20
 
 func _ready() -> void:
@@ -380,7 +409,7 @@ func _ready() -> void:
         pool.append(obj)
         add_child(obj)
 
-func get_from_pool() -> Node3D:
+func get_from_pool() -> Node2D:
     for obj in pool:
         if not obj.visible:
             obj.visible = true
@@ -391,21 +420,19 @@ func get_from_pool() -> Node3D:
 ## Asset Management
 
 ### Kenney Assets
-- All models are `.glb` format (Godot auto-imports)
-- Textures are embedded in models
+- 2D sprites are `.png` format (Godot auto-imports)
 - Audio is `.ogg` or `.wav`
 - License: CC0 (public domain) - no attribution required
 
 ### Import Settings
 Default settings are fine for prototyping. Optimize later if needed.
 
-### Material Overrides
+### Sprite Color Changes
 ```gdscript
-# Change color of a model at runtime
-var mesh_instance := $MeshInstance3D
-var material := StandardMaterial3D.new()
-material.albedo_color = Color.RED
-mesh_instance.set_surface_override_material(0, material)
+# Change color/tint of a sprite at runtime
+var sprite := $Sprite2D
+sprite.modulate = Color.RED  # Tint red
+sprite.self_modulate = Color(1, 1, 1, 0.5)  # Make semi-transparent
 ```
 
 ## When to Ask Clarifying Questions
@@ -442,14 +469,14 @@ Here's the complete player.gd:
 ```
 Create player.tscn with this structure:
 
-CharacterBody3D (Player)
-├── MeshInstance3D (Visual)
-├── CollisionShape3D (Collision)
-└── Label3D (UnitDisplay)
+CharacterBody2D (Player)
+├── Sprite2D (Visual)
+├── CollisionShape2D (Collision)
+└── Camera2D (Camera)
 
 **Manual steps:**
-1. Scene > New Scene > 3D Scene
-2. Change root type to CharacterBody3D
+1. Scene > New Scene > 2D Scene
+2. Change root type to CharacterBody2D
 3. [minimal additional steps]
 
 **Or** use this spawner script to create at runtime: [script]
@@ -468,25 +495,26 @@ The issue is [root cause].
 
 ## Week-by-Week Progression
 
-### Week 1: Movement & Collision ✅ COMPLETE
+### Week 1: Movement & Collision (2D Pivot Required)
+**Note:** Previous 3D implementation needs conversion to 2D
 - Mouse/touch horizontal movement
-- Forward auto-advance (objects move toward stationary player)
-- Enemy collision (HUD-based unit counter)
-- Simple barrel collection
-- UI with unit counter (top-right)
+- Player stationary at bottom (Y fixed)
+- Enemies chase player (never miss)
+- Collectibles scroll down (can miss)
+- Simple collision detection
 
 ### Week 2: Physical Units & Shooting
 **Major Refactor:**
-- Replace HUD counter with physical player units
+- Replace HUD counter with physical player units (2D sprites)
 - Player group manager (spawn/remove units in formation)
 - Enemy groups spawn as clusters
 - All collisions destroy individual units
-- Position all objects on ground
-- Scale properly (units small, collectibles medium)
+- 2D sprite-based visuals
 
 **New Features:**
-- Auto-shooting projectiles
-- Barrel shoot-to-open mechanic
+- Auto-shooting projectiles (shoot up)
+- Barrel multi-hit mechanic (bullets_required counter)
+- Barrel labels (value on top, bullets in front)
 - Unopened barrel damage
 - Gate system (shoot to charge)
 - Negative gates
@@ -518,11 +546,13 @@ This document evolves with the project. Update it when patterns change or new be
 
 ---
 
-**Last Updated:** 2024-12-08 (Physical units revision)
-**Project Phase:** Week 1 Complete, Week 2 Planning
+**Last Updated:** 2024-12-09 (2D overhead pivot)
+**Project Phase:** Design pivot - 3D to 2D overhead
 **Major Changes:**
-- Week 1 complete with HUD-based system
-- Week 2 will refactor to physical unit representation
-- Units spawn as small objects in tight formations (crowded look)
-- Enemy groups spawn as clusters
-- Objects positioned on ground, properly scaled
+- Converted from 3D to 2D overhead perspective
+- Enemies chase player (never roll off screen)
+- Collectibles scroll down (can be missed)
+- Barrel multi-hit system (bullets_required, bullets_remaining)
+- Barrels show value on top, bullets in front
+- All Node3D → Node2D, Vector3 → Vector2, Z-axis → Y-axis
+- Scale from world units to pixels

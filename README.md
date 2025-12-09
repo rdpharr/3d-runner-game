@@ -1,42 +1,51 @@
-# Game Clone - 3D Mobile Runner
+# Game Clone - 2D Overhead Runner
 
-A Godot 4 3D runner game where players manage unit count through strategic positioning, shooting, and resource collection.
+A Godot 4 2D overhead runner game where players manage physical unit swarms through strategic positioning, shooting, and resource collection.
 
 ## Project Overview
 
-**Genre:** 3D Auto-Runner with Shooting & Resource Management  
-**Engine:** Godot 4.3+  
-**Target Platform:** PC (prototype), eventual mobile export  
-**Assets:** Free assets from [Kenney.nl](https://kenney.nl)  
-**Development Time:** 3-5 months (part-time)  
+**Genre:** 2D Overhead Auto-Runner with Physical Unit Swarms
+**Engine:** Godot 4.5+
+**Target Platform:** PC (prototype), eventual mobile export
+**Assets:** Free 2D sprites from [Kenney.nl](https://kenney.nl) - Micro Roguelike pack
+**Development Time:** 3-5 months (part-time)
 **Budget:** $0 (learning project)
 
 ## Core Mechanics
 
 ### Player Movement
-- **Forward:** Player stationary at Z=0 (objects move toward player)
-- **Horizontal:** Follow mouse position (PC) or finger touch (mobile)
-- Playable width: 3 objects wide (~6 units, -3 to +3)
+- **Vertical:** Player stationary at Y=500 (bottom of screen)
+- **Horizontal:** Follow mouse position (PC) or finger touch (mobile) - moves within viewport
+- Playable width: 600 units (-300 to +300 from center)
 - Smooth responsive movement
+
+### Unit System (Physical Swarm)
+- Player units are 8x8 pixel sprites (blue tinted, tile_0004.png)
+- 15 starting units in tight circular formation (30px radius)
+- Enemy units are 8x8 pixel sprites (red tinted, tile_0010.png)
+- Collisions destroy individual physical units
+- Unit count visible from swarm size (no HUD needed)
 
 ### Object Movement
 Objects move in two ways:
-- **Moving:** Enemies and barrels spawn at negative Z, move toward positive Z (top to bottom of screen)
-- **Static:** Gates and multipliers attached to ground (future feature)
+- **Enemies:** Chase player using direction vectors (never despawn)
+- **Collectibles:** Barrels scroll straight down (can be missed if not intercepted)
+- **Static:** Gates and multipliers (future feature)
 
 ### Combat System
-- **Enemy Collision:** Both player and enemy lose min(player_units, enemy_units)
-- **Projectile Damage:** Auto-fire reduces enemy unit count
-- Enemy destroyed when units reach 0
-- Player defeated when units reach 0
+- **Enemy Collision:** Physical units destroyed from both sides (min count)
+- Each collision removes actual sprite objects from formations
+- Enemy group destroyed when all units gone
+- Player defeated when all units destroyed
+- **Projectile Damage:** (Future - Week 2) Auto-fire reduces enemy units
 
 ### Collectibles
 
-**Barrels (Two-State)**
-- **Unopened:** Show "?", damage player on contact (-value)
-- **Opened:** Shoot to open, then collect for +value
-- Moving toward player (creates urgency)
-- Must prioritize which to shoot open
+**Barrels (Simple Collection)**
+- Currently: Simple collection adds units to swarm
+- Scrolling down screen (can be missed)
+- Shows "+15" label with green text
+- **Future (Week 2):** Multi-shot system with bullets_required counter
 
 **Gates (Accumulation)**
 - Static position on ground
@@ -65,34 +74,39 @@ Objects move in two ways:
 
 ## Current Status
 
-**Phase:** Week 1 - Foundation Complete ✓
-**Build Status:** All core systems working
+**Phase:** Week 2 - 2D Conversion Complete ✓
+**Build Status:** Physical unit swarm system working
 
-### Completed - Week 1
+### Completed - 3D to 2D Conversion (Week 2)
+- [x] Converted from 3D to 2D overhead perspective
+- [x] Physical unit system (player swarm of 8x8 sprites)
+- [x] PlayerManager with circular formation spawning
+- [x] Enemy groups with chase behavior
+- [x] Physical collision destroys individual sprites
+- [x] Barrel collectibles with scroll behavior
+- [x] 2D Camera (stationary, player moves within viewport)
+- [x] Asset integration (Micro Roguelike 8x8 sprites)
+- [x] HUD showing unit count from array size
+- [x] Game over when all units destroyed
+
+### Completed - Week 1 (3D Foundation)
 - [x] Initial repository setup
 - [x] Git configuration and GitHub repository created
 - [x] Documentation structure (CLAUDE.md, DESIGN.md, README.md)
 - [x] Development workflow established
-- [x] Asset import (Kenney Tower Defense Kit + Starter Kit 3D Platformer)
-- [x] Player system (stationary with horizontal mouse control)
-- [x] Enemy system (moving from top to bottom, collision, unit count)
-- [x] Collectible system (barrels, simple collection)
-- [x] Basic 3D scene (ground, camera, lighting, spawner)
-- [x] UI (unit counter with signal-based updates)
-- [x] Camera orientation (player at bottom, enemies at top)
-- [x] Collision system (scaled objects with matching collision shapes)
-- [x] HUD integration (real-time unit count updates)
+- [x] 3D prototype with HUD-based unit counter
+- [x] Basic collision and movement systems
 
 ## Technology Stack
 
-**Engine:** Godot 4.3+
-- Chosen for: free license, good 3D support, fast iteration
-- Language: GDScript (typed where possible)
-- Renderer: Forward+ (for 3D with good performance)
+**Engine:** Godot 4.5+
+- Chosen for: free license, excellent 2D support, fast iteration
+- Language: GDScript (fully typed)
+- Renderer: Forward Mobile (2D optimized)
 
 **Assets:** Kenney.nl
-- Tower Defense Kit (UFO enemies, crystals, tiles - 160 models)
-- Starter Kit 3D Platformer (animated character, coins, environment)
+- Micro Roguelike Pack (320 8x8 pixel sprites, perfect for swarms)
+- Top-down Shooter Pack (backup sprites)
 - License: CC0 (public domain)
 
 **Development Tools:**
@@ -105,29 +119,33 @@ Objects move in two ways:
 ```
 game_clone/
 ├── scenes/              # Godot scene files (.tscn)
-│   ├── main.tscn       # Main game scene (from Starter Kit)
-│   ├── player.tscn     # Player character (CharacterBody3D + character.glb)
+│   ├── game_2d.tscn    # Main 2D game scene
+│   ├── player_manager.tscn  # Player (CharacterBody2D with swarm)
+│   ├── units/
+│   │   ├── player_unit.tscn  # Individual player sprite (8x8, blue)
+│   │   └── enemy_unit.tscn   # Individual enemy sprite (8x8, red)
 │   ├── enemies/
-│   │   └── enemy_basic.tscn  # UFO enemy (Area3D + enemy-ufo-a.glb)
+│   │   └── enemy_group.tscn  # Enemy cluster (Node2D + Area2D)
 │   └── collectibles/
-│       └── barrel_simple.tscn  # Crystal collectible (Area3D + detail-crystal.glb)
+│       └── barrel.tscn       # Barrel (Area2D + sprite)
 ├── scripts/            # GDScript files (.gd)
-│   ├── player_runner.gd  # Runner-specific player controller
-│   ├── enemy.gd          # Enemy behavior
-│   ├── barrel_simple.gd  # Collectible behavior
-│   ├── spawners/         # Level/object spawners (pending)
-│   └── managers/         # Game systems (pending)
+│   ├── player_manager_2d.gd  # Physical swarm manager
+│   ├── player_unit.gd        # Individual unit sprite
+│   ├── enemy_group_2d.gd     # Enemy chase + cluster
+│   ├── enemy_unit.gd         # Individual enemy sprite
+│   ├── barrel_2d.gd          # Scrolling collectible
+│   ├── game_manager_2d.gd    # Main game controller
+│   └── hud.gd                # UI overlay
 ├── assets/
-│   ├── models/           # .glb 3D models (320 files total)
-│   │   ├── character.glb # Animated player character
-│   │   ├── enemy-ufo-*.glb  # UFO enemies (a/b/c/d variants)
-│   │   ├── detail-crystal.glb  # Collectible crystal
-│   │   ├── tile.glb      # Ground tiles
-│   │   └── [158 more models...]
-│   ├── audio/            # Audio files (empty)
-│   └── textures/         # Textures (colormap.png, variation-a.png)
+│   ├── kenney_micro-roguelike/  # 8x8 pixel sprites
+│   │   └── Tiles/Colored/
+│   │       ├── tile_0004.png    # Player sprite
+│   │       ├── tile_0010.png    # Enemy sprite
+│   │       ├── tile_0100.png    # Barrel sprite
+│   │       └── [317 more sprites...]
+│   └── kenney_top-down-shooter/ # Backup sprites
 ├── docs/                 # Development documentation
-│   └── Week_1_Plan.md    # Week 1 implementation plan
+│   └── Week_1_Plan.md    # Original 3D plan (archived)
 ├── CLAUDE.md             # AI assistant guidelines
 ├── DESIGN.md             # Game design documentation
 └── README.md             # This file
@@ -218,15 +236,17 @@ See [DESIGN.md](DESIGN.md) for detailed design documentation.
 - F6 runs current scene only
 - Check Output panel for errors/warnings
 
-**Test Checklist (Week 1):**
-- [x] Player stationary, follows mouse horizontally
-- [x] Enemies move from top to bottom toward player
-- [x] Enemy collision reduces both unit counts
-- [x] Simple barrel collection works
-- [x] UI updates correctly in real-time
-- [x] Collision accuracy (objects touch when they visually overlap)
-- [x] Object scaling (20% size with matching collision shapes)
-- [ ] Game over at 0 units (not yet implemented)
+**Test Checklist (Week 2 - 2D Conversion):**
+- [x] Player moves horizontally within viewport (not camera-centered)
+- [x] 15 player units spawn in circular formation
+- [x] Enemies chase player continuously
+- [x] Barrels scroll straight down
+- [x] Physical collision destroys individual sprites
+- [x] Barrel collection spawns new player units
+- [x] HUD shows correct unit count
+- [x] Game over at 0 units
+- [ ] Projectile shooting system (Week 2 pending)
+- [ ] Multi-hit barrel system (Week 2 pending)
 
 ## Performance Targets
 

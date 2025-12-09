@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c7kx2yh9mz5vw"]
+
+[ext_resource type="Script" path="res://scripts/enemy_unit.gd" id="1_enemy_unit"]
+
+[node name="EnemyUnit" type="Sprite2D"]
+script = ExtResource("1_enemy_unit")

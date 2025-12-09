@@ -1,8 +1,8 @@
-# Game Design Document - 3D Mobile Runner
+# Game Design Document - 2D Overhead Runner
 
 ## Vision Statement
 
-A 3D auto-running game where players manage unit count through strategic horizontal movement, combat, and resource collection. Players must decide which objects to shoot open, which to collect, and which to avoid in an oncoming stream of enemies and collectibles.
+A 2D overhead auto-running game where players manage unit count through strategic horizontal movement, combat, and resource collection. Players must decide which objects to shoot open, which to collect, and which to avoid in an oncoming stream of enemies and collectibles.
 
 ## Core Gameplay Loop
 
@@ -22,8 +22,9 @@ Shoot gates to open (±units) → Pass multipliers (boost collection) → Repeat
 ### 1. Player Movement System
 
 **Forward Movement:**
-- Player is STATIONARY at Z=0
-- Objects move toward player (negative Z to positive Z)
+- Player is STATIONARY at Y=0 (bottom of screen)
+- Enemies move toward player (negative Y to positive Y, top to bottom)
+- Collectibles scroll past player (top to bottom, can be missed)
 - Creates visual effect of player running while maintaining simple camera
 - Speed increases difficulty
 
@@ -35,35 +36,36 @@ Shoot gates to open (±units) → Pass multipliers (boost collection) → Repeat
 - Constraint: Cannot move outside playable bounds
 
 **Camera Setup:**
-- Position: player.position + Vector3(0, 12, 5) (slightly behind at positive Z)
-- Rotation: Vector3(-45, 180, 0) (tilted down, facing negative Z)
-- Result: Player at bottom of screen, enemies at top
-- Camera follows player horizontally
+- Overhead 2D view (Camera2D)
+- Position: Fixed at center (0, viewport_height/2)
+- Result: Player moves within viewport, not camera-centered
+- Player at bottom of screen, objects spawn at top
+- Camera stationary - player moves side-to-side
 
 **Design Rationale:**
-- Mouse/touch control feels more direct and mobile-friendly
+- 2D overhead view is simpler and more mobile-friendly
+- Mouse/touch control feels more direct
 - 3-object width creates meaningful positioning choices
 - Stationary player simplifies camera and physics
-- Objects moving toward player creates urgency and visual flow
+- Enemies chase player (won't miss), collectibles scroll off (can miss)
 
 **Implementation Notes:**
 ```gdscript
 # Player (scripts/player_runner.gd)
-const PLAYABLE_WIDTH := 6.0
+const PLAYABLE_WIDTH := 600.0  # Screen pixels
 const MOVEMENT_SMOOTHING := 0.2
 
 func _physics_process(_delta: float) -> void:
-    # Player is STATIONARY - doesn't move in Z
-    velocity.z = 0
+    # Player is STATIONARY - doesn't move in Y
+    velocity.y = 0
 
     # Horizontal mouse following
     var mouse_pos := get_viewport().get_mouse_position()
     var viewport_size := get_viewport().get_visible_rect().size
 
-    # Map mouse X (0 to screen width) to game X (-3 to +3)
-    var normalized_x := (mouse_pos.x / viewport_size.x) * 2.0 - 1.0
-    var target_x := normalized_x * (PLAYABLE_WIDTH / 2.0)
-    target_x = clamp(target_x, -PLAYABLE_WIDTH/2, PLAYABLE_WIDTH/2)
+    # Map mouse X (0 to screen width) to game X
+    var target_x := mouse_pos.x
+    target_x = clamp(target_x, 50, viewport_size.x - 50)
 
     # Smooth horizontal movement
     position.x = lerp(position.x, target_x, MOVEMENT_SMOOTHING)
@@ -75,38 +77,52 @@ func _physics_process(_delta: float) -> void:
 
 Objects come in two categories based on movement:
 
-**Moving Objects (Advance Toward Player):**
-- **Enemies:** Spawn at negative Z, move toward positive Z (top to bottom of screen)
-- **Barrels:** Spawn at negative Z, move toward positive Z (top to bottom of screen)
-- Speed affects difficulty (faster = harder to aim/dodge)
-- Destroyed when passing player or on interaction
+**Enemies (Always Move Toward Player):**
+- Spawn at top of screen (negative Y)
+- Move toward player position (chase behavior)
+- **Never roll off screen** - always pursue player
+- Speed affects difficulty (faster = harder to dodge)
+- Destroyed only on collision or when shot
 
-**Static Objects (Attached to Ground - Future):**
-- **Gates:** Fixed Z position on ground
-- **Multiplier Zones:** Floor panels at fixed Z position
-- Player advances toward them (future feature)
+**Collectibles (Scroll Down, Can Miss):**
+- **Barrels:** Spawn at top, move straight down
+- **Gates:** Spawn at top, move straight down (future)
+- **Roll off screen** if not collected
+- Player must position to intercept
+
+**Static Objects (Future):**
+- **Multiplier Zones:** Fixed position panels
+- Player advances toward them
 
 **Movement Speed:**
 ```gdscript
-# Enemy/Barrel movement (scripts/enemy.gd, barrel_simple.gd)
-const MOVE_SPEED := 3.0
-const DESPAWN_DISTANCE := 50.0
+# Enemy movement (scripts/enemy.gd)
+const CHASE_SPEED := 100.0  # Pixels per second
 
 func _physics_process(delta: float) -> void:
-    # Move from negative Z to positive Z (top to bottom of screen)
-    position.z += MOVE_SPEED * delta
-
-    # Despawn if moved past player (positive Z direction)
     var player := get_tree().get_first_node_in_group("player")
-    if player and position.z > player.position.z + DESPAWN_DISTANCE:
+    if player:
+        # Move toward player position
+        var direction := (player.position - position).normalized()
+        position += direction * CHASE_SPEED * delta
+
+# Collectible movement (scripts/barrel.gd)
+const SCROLL_SPEED := 150.0  # Pixels per second
+
+func _physics_process(delta: float) -> void:
+    # Move straight down
+    position.y += SCROLL_SPEED * delta
+
+    # Despawn if off screen
+    if position.y > get_viewport_rect().size.y + 50:
         queue_free()
 ```
 
 **Design Rationale:**
-- Moving objects create urgency and dynamic targets
-- Top-to-bottom movement feels natural (like falling toward player)
-- Player stationary at Z=0, objects spawn at negative Z (e.g., -10, -15, -20)
-- Differentiating movement types adds strategic variety
+- Enemies chasing creates constant threat
+- Collectibles scrolling creates positioning skill test
+- Missed collectibles = lost opportunity
+- Top-to-bottom movement feels natural in overhead view
 - Speed scaling provides difficulty control
 
 ### 3. Unit Count System (Physical Representation)
@@ -120,16 +136,16 @@ func _physics_process(delta: float) -> void:
 **Physical Player Units:**
 ```gdscript
 # Player manager tracks all unit objects
-var player_units: Array[Node3D] = []
-const UNIT_SPACING := 0.3  # Tight formation
-const FORMATION_RADIUS := 1.5  # Circular cluster
+var player_units: Array[Node2D] = []
+const UNIT_SPACING := 5.0  # Tight formation (pixels)
+const FORMATION_RADIUS := 30.0  # Circular cluster (pixels)
 
 func spawn_player_unit() -> void:
     var unit := player_unit_scene.instantiate()
     # Position in tight circular formation around center
     var angle := randf() * TAU
     var radius := randf() * FORMATION_RADIUS
-    unit.position = Vector3(cos(angle) * radius, 0, sin(angle) * radius)
+    unit.position = Vector2(cos(angle) * radius, sin(angle) * radius)
     player_units.append(unit)
     add_child(unit)
 
@@ -155,7 +171,7 @@ func remove_player_unit() -> void:
 - Option to restart
 
 **Visual Design:**
-- Player units: Small humanoid models (scale 0.3-0.5)
+- Player units: Small 2D sprites (scale 0.5-0.7)
 - Tightly clustered (creates "crowd" feel)
 - Move together as formation (follow leader)
 - Individual units can be hit/destroyed
@@ -172,12 +188,12 @@ func remove_player_unit() -> void:
 **Enemy Properties:**
 ```gdscript
 # Enemy manager spawns groups
-class_name EnemyGroup extends Node3D
+class_name EnemyGroup extends Node2D
 
 @export var enemy_unit_scene: PackedScene
 @export var unit_count := 20
-@export var move_speed := 3.0
-var enemy_units: Array[Node3D] = []
+@export var chase_speed := 100.0
+var enemy_units: Array[Node2D] = []
 
 func _ready() -> void:
     spawn_enemy_units(unit_count)
@@ -187,8 +203,8 @@ func spawn_enemy_units(count: int) -> void:
         var unit := enemy_unit_scene.instantiate()
         # Tight cluster formation (like player)
         var angle := randf() * TAU
-        var radius := randf() * 1.0  # Tighter than player
-        unit.position = Vector3(cos(angle) * radius, 0, sin(angle) * radius)
+        var radius := randf() * 20.0  # Pixels
+        unit.position = Vector2(cos(angle) * radius, sin(angle) * radius)
         enemy_units.append(unit)
         add_child(unit)
 ```
@@ -222,15 +238,15 @@ func on_collision_with_player(player_manager: PlayerManager) -> void:
 - **Boss:** Single large unit (different scale, high HP)
 
 **Visual Design:**
-- Enemy units: Small models (same scale as player units)
+- Enemy units: Small 2D sprites (same scale as player units)
 - Tightly clustered (creates threat impression)
 - Different color (red) to distinguish from player
 - Groups move together toward player
 
 **Object Scale Guidelines:**
-- **Player/Enemy units:** Scale 0.3-0.5 (small, many)
-- **Collectibles (barrels/gates):** Scale 1.0-1.5 (medium, noticeable)
-- **Bosses (future):** Scale 2.0-3.0 (large, imposing)
+- **Player/Enemy units:** 16x16 to 24x24 pixels (small, many)
+- **Collectibles (barrels/gates):** 48x48 to 64x64 pixels (medium, noticeable)
+- **Bosses (future):** 96x96 to 128x128 pixels (large, imposing)
 
 **Visual Feedback:**
 - Individual units destroyed (pop/fade)
@@ -247,33 +263,50 @@ func on_collision_with_player(player_manager: PlayerManager) -> void:
 
 ### 5. Collectible Systems
 
-#### Barrels (Shoot to Open, Then Collect)
+#### Barrels (Shoot Multiple Times to Open, Then Collect)
 
-**Two-State System:**
-1. **Unopened (Dangerous):**
-   - Moving toward player
-   - Shows "?" or locked icon
-   - **Collision damages player** (-barrel's value)
-   - Must shoot to open
+**Multi-Shot System:**
+1. **Unopened (Requires Shooting):**
+   - Scrolling down screen
+   - Shows value on top (e.g., "+15")
+   - Shows bullets required in front (e.g., "3")
+   - Must hit X times to open
+   - **Collision damages player** (-barrel's value) if not opened
 
 2. **Opened (Collectible):**
-   - Still moving toward player
-   - Shows "+X" value
-   - Collision adds units to player
+   - Still scrolling down screen
+   - Bullets counter reached 0
+   - Value still visible
+   - Collision spawns units equal to value
    - Disappears after collection
 
 **Shooting to Open:**
 ```gdscript
-class_name Barrel extends Area3D
+class_name Barrel extends Area2D
 
-@export var value := 15
+@export var value := 15  # Units granted when collected
+@export var bullets_required := 3  # Hits needed to open
+var bullets_remaining := bullets_required
 var is_open := false
+
+@onready var value_label := $ValueLabel  # Shows "+15"
+@ontml:parameter>
+@onready var bullets_label := $BulletsLabel  # Shows "3" -> "2" -> "1" -> "0"
+
+func _ready() -> void:
+    update_visual()
 
 func on_projectile_hit() -> void:
     if not is_open:
-        is_open = true
-        update_visual()  # Change from "?" to "+15"
-        # Play open sound/effect
+        bullets_remaining -= 1
+        if bullets_remaining <= 0:
+            is_open = true
+            bullets_remaining = 0
+        update_visual()
+
+func update_visual() -> void:
+    value_label.text = "+" + str(value)
+    bullets_label.text = str(bullets_remaining) if not is_open else ""
 
 func on_player_collision(player_manager: PlayerManager) -> void:
     if is_open:
@@ -293,16 +326,25 @@ func on_player_collision(player_manager: PlayerManager) -> void:
 - Late game: +50 to +100
 
 **Visual Design:**
-- **Unopened:** Gray/locked barrel, "?" icon
-- **Opened:** Brown/wooden barrel, green "+X" label
-- Opening animation (lid pops off)
+- **Unopened:** Barrel sprite with two labels:
+  - Top: "+15" (green, value)
+  - Front: "3" (white, bullets remaining)
+- **Opened:** Same barrel, bullets label disappears
+- Opening animation (lid pops off, bullets label fades)
 - Collection particle burst
+
+**Bullets Required:**
+- Small barrels (+10-20): 1-2 bullets
+- Medium barrels (+30-50): 3-4 bullets
+- Large barrels (+60-100): 5-6 bullets
 
 **Design Rationale:**
 - Forces shooting prioritization (can't open all)
+- Multiple bullets required creates resource management
 - Penalty for unopened creates risk/reward tension
-- Moving toward player adds time pressure
+- Scrolling down creates time pressure
 - High-value barrels worth the bullet investment
+- Clear feedback (bullets remaining visible)
 
 #### Gates (Accumulation & Risk)
 
@@ -315,7 +357,7 @@ func on_player_collision(player_manager: PlayerManager) -> void:
 
 **Value Mechanics:**
 ```gdscript
-class_name Gate extends Area3D
+class_name Gate extends Area2D
 
 @export var starting_value := 0  # Can be negative!
 var current_value := starting_value
@@ -432,28 +474,28 @@ Pattern: Strategic Sequencing
 
 **Projectile Properties:**
 ```gdscript
-const PROJECTILE_SPEED := 20.0
+const PROJECTILE_SPEED := 300.0  # Pixels per second
 const FIRE_RATE := 0.5  # Seconds between shots
-const MAX_RANGE := 30.0
+const MAX_RANGE := 400.0  # Pixels
 const DAMAGE_TO_ENEMY := 5  # Reduces enemy unit_count
 const GATE_CHARGE := 5  # Adds to gate value
-const BARREL_OPEN := 1  # Opens barrel (any hit)
+const BARREL_HIT := 1  # Decrements barrel bullets_remaining
 ```
 
 **Targeting:**
-- Fires straight ahead (no homing)
+- Fires straight up (negative Y direction)
 - Hits first object in path
-- Priority: Enemies > Barrels > Gates (determined by Z-distance)
+- Priority: Enemies > Barrels > Gates (determined by Y-distance)
 
 **Hit Effects:**
 - **Enemy:** Reduce unit_count by 5
-- **Barrel:** Open barrel (change state)
+- **Barrel:** Decrement bullets_remaining (opens when 0)
 - **Gate:** Increase value by 5
 
 **Visual Design:**
-- Simple sphere mesh
+- Simple circle sprite or bullet sprite
 - Bright color (yellow/orange)
-- Trail particle effect
+- Trail particle effect (optional)
 - Impact flash on hit
 
 **Design Rationale:**
@@ -714,13 +756,14 @@ Bottom: Distance/Score (small)
 
 ---
 
-**Document Version:** 3.0
-**Last Updated:** 2024-12-08
-**Status:** Major revision - physical unit representation
+**Document Version:** 4.0
+**Last Updated:** 2024-12-09
+**Status:** Major revision - 2D overhead perspective
 **Changes:**
-- Removed HUD unit counter, replaced with physical player objects
-- Player units in tight swarm formation (crowded look)
-- Enemy groups spawn as clusters (same crowded style)
-- All units small scale (0.3-0.5), collectibles medium (1.0-1.5)
-- Objects positioned on ground, not floating
-- Unit spawning/destruction for all gains/losses
+- Converted from 3D to 2D overhead view
+- Enemies chase player (never roll off screen)
+- Collectibles scroll down (can be missed)
+- Barrels require multiple bullet hits to open (bullets_required value)
+- Barrels show value on top, bullets remaining in front
+- All coordinates changed from Vector3/Z-axis to Vector2/Y-axis
+- Scale changed from world units to pixels

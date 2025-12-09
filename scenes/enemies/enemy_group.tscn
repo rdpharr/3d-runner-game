@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3 uid="uid://d3y5wx8kp7nqm"]
+
+[ext_resource type="Script" path="res://scripts/enemy_group_2d.gd" id="1_enemy_group"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
+radius = 20.0
+
+[node name="EnemyGroup" type="Node2D"]
+script = ExtResource("1_enemy_group")
+
+[node name="Area2D" type="Area2D" parent="."]
+collision_layer = 2
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+shape = SubResource("CircleShape2D_enemy")
