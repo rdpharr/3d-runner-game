@@ -37,22 +37,27 @@ Objects move in two ways:
 - Each collision removes actual sprite objects from formations
 - Enemy group destroyed when all units gone
 - Player defeated when all units destroyed
-- **Projectile Damage:** (Future - Week 2) Auto-fire reduces enemy units
+- **Projectile Damage:** Auto-fire every 0.5s, one projectile per player unit
+- Projectiles destroy individual enemy units before collision
+- Strategic: thin enemy swarms or focus on collectibles
 
 ### Collectibles
 
-**Barrels (Simple Collection)**
-- Currently: Simple collection adds units to swarm
-- Scrolling down screen (can be missed)
-- Shows "+15" label with green text
-- **Future (Week 2):** Multi-shot system with bullets_required counter
+**Barrels (Shoot-to-Open)**
+- Require 1-3 bullets to open (based on value)
+- Show bullets_remaining counter (yellow text)
+- **Unopened:** Damage player on collision (penalty = barrel value)
+- **Opened:** Reward player on collision (reward = barrel value)
+- Visual: Green tint when opened
+- Risk/reward: Shoot to open or avoid entirely
 
 **Gates (Accumulation)**
-- Static position on ground
+- Very large (96x32 pixels, 3 tiles wide)
 - Start at positive, zero, or negative value
 - Shoot to increase value (+5 per hit)
 - Walk through to collect current value (can be negative!)
-- **Unobtainable gates:** Start so negative they're impossible to make positive
+- Color coding: Green (positive), Red (negative), White (neutral)
+- **Unobtainable gates:** (Future) Start so negative they're impossible to make positive
 
 **Multiplier Zones**
 - Floor areas (static on ground)
@@ -61,10 +66,12 @@ Objects move in two ways:
 - Strategic: choose what to multiply
 
 ### Projectile System
-- Auto-fire forward at regular intervals
-- Hits: enemies (damage), barrels (open), gates (charge)
+- Auto-fire upward every 0.5 seconds
+- Each player unit fires one projectile (spread across formation)
+- Small 8x8 pixel yellow sprites
+- Hits: enemies (destroy unit), barrels (reduce counter), gates (add +5 value)
 - Bullet economy: can't shoot everything
-- Prioritization required
+- Strategic prioritization required
 
 ### Difficulty Scaling
 - **Speed:** Player forward speed + enemy approach speed
@@ -74,10 +81,21 @@ Objects move in two ways:
 
 ## Current Status
 
-**Phase:** Week 2 - 2D Conversion Complete ✓
-**Build Status:** Physical unit swarm system working
+**Phase:** Week 2 - Projectile Combat System Complete ✓
+**Build Status:** All Week 2 features functional
 
-### Completed - 3D to 2D Conversion (Week 2)
+### Completed - Week 2 Projectile Combat (Current)
+- [x] Auto-fire projectile system (0.5s intervals, one per unit)
+- [x] Projectile collision detection (enemies, barrels, gates)
+- [x] Barrel multi-shot mechanics (bullets_required counter)
+- [x] Shoot-to-open barrels (unopened = penalty, opened = reward)
+- [x] Gate accumulation system (starting_value ± projectile hits)
+- [x] Negative gates (can subtract units)
+- [x] Visual feedback (bullet counters, color tinting, value labels)
+- [x] Enemy projectile damage (thin swarms before collision)
+- [x] Size hierarchy (projectiles < units < barrels < gates)
+
+### Completed - 3D to 2D Conversion
 - [x] Converted from 3D to 2D overhead perspective
 - [x] Physical unit system (player swarm of 8x8 sprites)
 - [x] PlayerManager with circular formation spawning
@@ -129,20 +147,26 @@ game_clone/
 │   └── collectibles/
 │       └── barrel.tscn       # Barrel (Area2D + sprite)
 ├── scripts/            # GDScript files (.gd)
-│   ├── player_manager_2d.gd  # Physical swarm manager
+│   ├── player_manager_2d.gd  # Physical swarm manager + auto-fire
 │   ├── player_unit.gd        # Individual unit sprite
-│   ├── enemy_group_2d.gd     # Enemy chase + cluster
+│   ├── enemy_group_2d.gd     # Enemy chase + cluster + projectile damage
 │   ├── enemy_unit.gd         # Individual enemy sprite
-│   ├── barrel_2d.gd          # Scrolling collectible
+│   ├── barrel_2d.gd          # Shoot-to-open collectible
+│   ├── gate.gd               # Gate accumulation system
+│   ├── projectile.gd         # Projectile movement and collision
 │   ├── game_manager_2d.gd    # Main game controller
 │   └── hud.gd                # UI overlay
 ├── assets/
 │   ├── kenney_micro-roguelike/  # 8x8 pixel sprites
 │   │   └── Tiles/Colored/
-│   │       ├── tile_0004.png    # Player sprite
-│   │       ├── tile_0010.png    # Enemy sprite
-│   │       ├── tile_0100.png    # Barrel sprite
-│   │       └── [317 more sprites...]
+│   │       ├── tile_0004.png    # Player sprite (8x8)
+│   │       ├── tile_0010.png    # Enemy sprite (8x8)
+│   │       ├── tile_0007.png    # Projectile sprite (8x8)
+│   │       ├── tile_0100.png    # Barrel sprite (8x8)
+│   │       ├── tile_0060.png    # Gate left tile (8x8)
+│   │       ├── tile_0061.png    # Gate center tile (8x8)
+│   │       ├── tile_0059.png    # Gate right tile (8x8)
+│   │       └── [314 more sprites...]
 │   └── kenney_top-down-shooter/ # Backup sprites
 ├── docs/                 # Development documentation
 │   └── Week_1_Plan.md    # Original 3D plan (archived)
@@ -236,17 +260,24 @@ See [DESIGN.md](DESIGN.md) for detailed design documentation.
 - F6 runs current scene only
 - Check Output panel for errors/warnings
 
-**Test Checklist (Week 2 - 2D Conversion):**
+**Test Checklist (Week 2 - Projectile Combat):**
 - [x] Player moves horizontally within viewport (not camera-centered)
 - [x] 15 player units spawn in circular formation
 - [x] Enemies chase player continuously
 - [x] Barrels scroll straight down
 - [x] Physical collision destroys individual sprites
-- [x] Barrel collection spawns new player units
 - [x] HUD shows correct unit count
 - [x] Game over at 0 units
-- [ ] Projectile shooting system (Week 2 pending)
-- [ ] Multi-hit barrel system (Week 2 pending)
+- [x] Projectiles auto-fire every 0.5 seconds
+- [x] Each unit fires one projectile (spread across formation)
+- [x] Projectiles hit enemies and destroy units
+- [x] Barrels show bullets_required counter
+- [x] Shooting barrels reduces counter
+- [x] Unopened barrels damage player
+- [x] Opened barrels reward player
+- [x] Gates show current value with color coding
+- [x] Shooting gates increases value (+5)
+- [x] Positive/negative gates work correctly
 
 ## Performance Targets
 
@@ -271,13 +302,14 @@ See [DESIGN.md](DESIGN.md) for detailed design documentation.
 
 ### Planned Future
 - Mobile touch controls
-- Shooting system (Week 2)
-- Barrel shoot-to-open (Week 2)
-- Gates and multipliers (Week 2-3)
+- Multiplier zones (Week 3)
+- Unobtainable gates (Week 3)
+- Particle effects (Week 3)
+- Sound effects (Week 3)
 - Multiple levels
 - Upgrade system
 - Settings menu
-- Sound/music
+- Background music
 
 ## Resources
 
@@ -308,6 +340,16 @@ This is a learning project, not for commercial release.
 **Repository:** https://github.com/rdpharr/3d-runner-game
 
 ## Changelog
+
+### 2024-12-09 - Session 3: Week 2 Projectile Combat Complete
+- **Projectile System:** Auto-fire every 0.5s, one per player unit, spread across formation
+- **Barrel Multi-Shot:** bullets_required counter, shoot-to-open, penalty/reward system
+- **Gate Accumulation:** starting_value ± projectile hits, color-coded feedback
+- **Enemy Damage:** Projectiles destroy individual enemy units
+- **Visual Polish:** Bullet counters, color tinting, value labels
+- **Size Hierarchy:** Projectiles (8x8) < Units (16x16) < Barrels (32x32) < Gates (96x32)
+- **Collision Fix:** Corrected projectile collision_mask from 10 to 6
+- Week 2 complete: All combat features functional
 
 ### 2024-12-08 - Session 2: Week 1 Complete
 - Fixed camera orientation (player at bottom, enemies at top)
@@ -341,4 +383,4 @@ This is a learning project, not for commercial release.
 
 ---
 
-**Next Session:** Week 2 - Shooting system, shoot-to-open barrels, gates, negative gates
+**Next Session:** Week 3 - Multiplier zones, difficulty scaling, particle effects, sound

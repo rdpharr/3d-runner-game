@@ -7,14 +7,25 @@ const DESPAWN_Y := 700.0  # Bottom of screen + buffer
 
 # Collectible properties
 @export var value := 15
+var bullets_required := 1
+var bullets_remaining := 1
+var is_open := false
 
 # Visual references
 @onready var sprite := $Sprite2D
-@onready var label := $Label
+@onready var value_label := $ValueLabel
+@onready var bullet_label := $BulletLabel
 
 func _ready() -> void:
-	body_entered.connect(_on_body_entered)
+	# Calculate bullets needed based on value
+	bullets_required = calculate_bullets_needed(value)
+	bullets_remaining = bullets_required
 	update_display()
+	body_entered.connect(_on_body_entered)
+
+func calculate_bullets_needed(barrel_value: int) -> int:
+	# 1-10: 1 bullet, 11-20: 2 bullets, 21-30: 3 bullets, etc.
+	return max(1, barrel_value / 10)
 
 func _physics_process(delta: float) -> void:
 	# Scroll straight down (positive Y)
@@ -24,15 +35,38 @@ func _physics_process(delta: float) -> void:
 	if position.y > DESPAWN_Y:
 		queue_free()
 
-func _on_body_entered(body: Node2D) -> void:
-	if body is PlayerManager:
-		collect(body)
+func on_projectile_hit() -> void:
+	"""Called by Projectile when hit"""
+	if is_open:
+		return  # Already opened, ignore further hits
 
-func collect(player: PlayerManager) -> void:
-	player.add_units(value)
-	queue_free()
+	bullets_remaining -= 1
+	if bullets_remaining <= 0:
+		is_open = true
+		bullets_remaining = 0
+
+	update_display()
 
 func update_display() -> void:
-	if label:
-		label.text = "+" + str(value)
-		label.modulate = Color.GREEN
+	if is_open:
+		# Show reward value in green
+		value_label.text = "+" + str(value)
+		value_label.modulate = Color.GREEN
+		bullet_label.text = ""
+		sprite.modulate = Color(0.8, 1.0, 0.8)  # Green tint
+	else:
+		# Show value and bullets needed
+		value_label.text = str(value)
+		value_label.modulate = Color.WHITE
+		bullet_label.text = str(bullets_remaining)
+		bullet_label.modulate = Color.YELLOW
+
+func _on_body_entered(body: Node2D) -> void:
+	if body is PlayerManager:
+		if is_open:
+			# Reward!
+			body.add_units(value)
+		else:
+			# Penalty!
+			body.take_damage(value)
+		queue_free()

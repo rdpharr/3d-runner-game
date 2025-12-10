@@ -263,154 +263,221 @@ func on_collision_with_player(player_manager: PlayerManager) -> void:
 
 ### 5. Collectible Systems
 
-#### Barrels (Shoot Multiple Times to Open, Then Collect)
+#### Barrels (Shoot Multiple Times to Open, Then Collect) ✅ Implemented Week 2
 
 **Multi-Shot System:**
 1. **Unopened (Requires Shooting):**
-   - Scrolling down screen
-   - Shows value on top (e.g., "+15")
-   - Shows bullets required in front (e.g., "3")
+   - Scrolling down screen (120 px/sec)
+   - Shows value on top (e.g., "15")
+   - Shows bullets remaining as yellow text (e.g., "2")
    - Must hit X times to open
-   - **Collision damages player** (-barrel's value) if not opened
+   - **Collision damages player** (lose barrel's value in units) if not opened
 
 2. **Opened (Collectible):**
    - Still scrolling down screen
-   - Bullets counter reached 0
-   - Value still visible
-   - Collision spawns units equal to value
+   - Bullets counter disappeared (reached 0)
+   - Value changes to green "+15"
+   - Sprite gains green tint
+   - Collision adds units equal to value
    - Disappears after collection
 
-**Shooting to Open:**
+**Implementation:**
 ```gdscript
-class_name Barrel extends Area2D
+# scripts/barrel_2d.gd
+extends Area2D
+class_name Barrel
+
+const SCROLL_SPEED := 120.0
+const DESPAWN_Y := 700.0
 
 @export var value := 15  # Units granted when collected
-@export var bullets_required := 3  # Hits needed to open
-var bullets_remaining := bullets_required
+var bullets_required := 1  # Calculated from value
+var bullets_remaining := 1
 var is_open := false
 
-@onready var value_label := $ValueLabel  # Shows "+15"
-@ontml:parameter>
-@onready var bullets_label := $BulletsLabel  # Shows "3" -> "2" -> "1" -> "0"
+@onready var sprite := $Sprite2D
+@onready var value_label := $ValueLabel  # Shows "15" or "+15"
+@onready var bullet_label := $BulletLabel  # Shows "2" -> "1" -> ""
 
 func _ready() -> void:
-    update_visual()
+    bullets_required = calculate_bullets_needed(value)
+    bullets_remaining = bullets_required
+    update_display()
+
+func calculate_bullets_needed(barrel_value: int) -> int:
+    # 1-10: 1 bullet, 11-20: 2 bullets, 21-30: 3 bullets, etc.
+    return max(1, barrel_value / 10)
 
 func on_projectile_hit() -> void:
-    if not is_open:
-        bullets_remaining -= 1
-        if bullets_remaining <= 0:
-            is_open = true
-            bullets_remaining = 0
-        update_visual()
-
-func update_visual() -> void:
-    value_label.text = "+" + str(value)
-    bullets_label.text = str(bullets_remaining) if not is_open else ""
-
-func on_player_collision(player_manager: PlayerManager) -> void:
     if is_open:
-        # Spawn new player units
-        for i in value:
-            player_manager.spawn_player_unit()
+        return
+
+    bullets_remaining -= 1
+    if bullets_remaining <= 0:
+        is_open = true
+        bullets_remaining = 0
+
+    update_display()
+
+func update_display() -> void:
+    if is_open:
+        value_label.text = "+" + str(value)
+        value_label.modulate = Color.GREEN
+        bullet_label.text = ""
+        sprite.modulate = Color(0.8, 1.0, 0.8)  # Green tint
     else:
-        # Destroy player units as penalty
-        for i in value:
-            player_manager.remove_player_unit()
-    queue_free()
+        value_label.text = str(value)
+        value_label.modulate = Color.WHITE
+        bullet_label.text = str(bullets_remaining)
+        bullet_label.modulate = Color.YELLOW
+
+func _on_body_entered(body: Node2D) -> void:
+    if body is PlayerManager:
+        if is_open:
+            body.add_units(value)  # Reward
+        else:
+            body.take_damage(value)  # Penalty!
+        queue_free()
 ```
 
+**Size & Visual Design:**
+- Size: 32x32 pixels (~2 units wide)
+- Sprite: tile_0100.png scaled 4x (from 8x8 to 32x32)
+- Collision: RectangleShape2D 32x32
+- **Unopened:** White sprite, white value label, yellow bullet counter
+- **Opened:** Green-tinted sprite, green "+value" label, no bullet counter
+- Labels positioned above barrel for visibility
+
+**Bullets Required Calculation:**
+- Values 1-10: 1 bullet
+- Values 11-20: 2 bullets
+- Values 21-30: 3 bullets
+- Formula: `max(1, value / 10)`
+
 **Value Range:**
-- Early game: +10 to +20
-- Mid game: +30 to +50
-- Late game: +50 to +100
-
-**Visual Design:**
-- **Unopened:** Barrel sprite with two labels:
-  - Top: "+15" (green, value)
-  - Front: "3" (white, bullets remaining)
-- **Opened:** Same barrel, bullets label disappears
-- Opening animation (lid pops off, bullets label fades)
-- Collection particle burst
-
-**Bullets Required:**
-- Small barrels (+10-20): 1-2 bullets
-- Medium barrels (+30-50): 3-4 bullets
-- Large barrels (+60-100): 5-6 bullets
+- Early game: +10 to +20 (1-2 bullets)
+- Mid game: +30 to +50 (3-5 bullets)
+- Late game: +50 to +100 (5-10 bullets)
 
 **Design Rationale:**
 - Forces shooting prioritization (can't open all)
 - Multiple bullets required creates resource management
 - Penalty for unopened creates risk/reward tension
-- Scrolling down creates time pressure
+- Scrolling down creates time pressure (can miss if not intercepted)
 - High-value barrels worth the bullet investment
-- Clear feedback (bullets remaining visible)
+- Clear visual feedback (bullet counter, color changes)
+- Penalty = value ensures meaningful consequences
 
-#### Gates (Accumulation & Risk)
+#### Gates (Accumulation & Risk) ✅ Implemented Week 2
 
 **Behavior:**
-- Static position on ground (player advances toward)
-- Start at 0 or negative value
-- Shoot to charge/increase value
+- Scroll down screen (80 px/sec - slower than barrels)
+- Start at positive, zero, or negative value
+- Shoot to increase value (+5 per hit)
 - Walk through to collect current value
 - Can be positive or negative at collection
+- Very large size (6+ units wide) - hard to miss
 
-**Value Mechanics:**
+**Implementation:**
 ```gdscript
-class_name Gate extends Area2D
+# scripts/gate.gd
+extends Area2D
+class_name Gate
+
+const VALUE_PER_HIT := 5
+const SCROLL_SPEED := 80.0  # Slower than barrels
+const DESPAWN_Y := 700.0
 
 @export var starting_value := 0  # Can be negative!
-var current_value := starting_value
-const VALUE_PER_HIT := 5
+var current_value := 0
+
+@onready var value_label := $ValueLabel
+@onready var sprite_container := $Sprite2D
 
 func _ready() -> void:
     current_value = starting_value
     update_display()
+    body_entered.connect(_on_body_entered)
+
+func _physics_process(delta: float) -> void:
+    position.y += SCROLL_SPEED * delta
+    if position.y > DESPAWN_Y:
+        queue_free()
 
 func on_projectile_hit() -> void:
     current_value += VALUE_PER_HIT
     update_display()
 
-func on_player_entered(player_manager: PlayerManager) -> void:
+func update_display() -> void:
+    var tint_color: Color
+
     if current_value > 0:
-        # Spawn player units
-        for i in current_value:
-            player_manager.spawn_player_unit()
+        value_label.text = "+" + str(current_value)
+        value_label.modulate = Color.GREEN
+        tint_color = Color(0.8, 1.0, 0.8)
+    elif current_value < 0:
+        value_label.text = str(current_value)
+        value_label.modulate = Color.RED
+        tint_color = Color(1.0, 0.8, 0.8)
     else:
-        # Destroy player units
-        for i in abs(current_value):
-            player_manager.remove_player_unit()
-    queue_free()
+        value_label.text = "0"
+        value_label.modulate = Color.WHITE
+        tint_color = Color.WHITE
+
+    # Apply tint to all sprite children
+    for child in sprite_container.get_children():
+        if child is Sprite2D:
+            child.modulate = tint_color
+
+func _on_body_entered(body: Node2D) -> void:
+    if body is PlayerManager:
+        if current_value > 0:
+            body.add_units(current_value)
+        elif current_value < 0:
+            body.take_damage(abs(current_value))
+        queue_free()
 ```
 
-**Gate Types:**
-- **Positive Start:** Start at +20, shoot for more (+25, +30, etc.)
-- **Zero Start:** Start at 0, must shoot to gain value
-- **Negative Start:** Start at -30, shoot to bring to positive
-- **Unobtainable:** Start at -100, impossible to make positive
+**Size & Visual Design:**
+- Size: 96x32 pixels (6+ units wide - very large!)
+- Structure: 3 tiles horizontally aligned
+  - Left: tile_0060.png (4x scale)
+  - Center: tile_0061.png (4x scale)
+  - Right: tile_0059.png (4x scale)
+- Collision: RectangleShape2D 96x32
+- **Positive value:** Green tint, "+X" label in green
+- **Negative value:** Red tint, "-X" label in red
+- **Zero:** White, "0" label in white
+- All three sprite tiles tint together based on value
+- Value label positioned above gate (font size 32)
 
-**Visual Design:**
-- Large archway structure
-- Digital counter display shows current value
-- **Red** for negative values
-- **Yellow** for 0-20
-- **Green** for 21+
-- Glowing intensity increases with value
+**Gate Types:**
+- **Positive Start:** Start at +10 to +20, shoot for more
+- **Zero Start:** Start at 0, must shoot to gain value
+- **Negative Start:** Start at -15 to -30, shoot to bring to positive or avoid
+- **Unobtainable (Future):** Start very negative, impossible to make positive
+
+**Value Per Hit:**
+- Each projectile hit adds exactly +5 to current_value
+- Starting value -15 needs 3 hits to reach 0, 4 hits to be positive
+- Strategic: invest bullets to improve value or avoid entirely
 
 **Placement Strategy:**
 ```
 Pattern: Risk Assessment
-- Obvious positive: Easy decision, shoot and collect
-- Zero gate: Investment required, shoot if time permits
+- Obvious positive: Easy decision, walk through (shoot for bonus)
+- Zero gate: Investment required, shoot if bullets available
 - Negative gate: Major decision - shoot heavily or avoid
-- Unobtainable trap: Learn to avoid, wasted bullets = failure
+- Unobtainable trap (Future): Learn to avoid, wasted bullets = failure
 ```
 
 **Design Rationale:**
 - Creates bullet economy (can't shoot everything)
 - Negative gates add avoidance gameplay
-- Unobtainable gates punish poor decisions
-- Difficult levels feature more traps
+- Large size makes them hard to miss (strategic positioning required)
+- Color coding provides instant feedback (green=safe, red=danger)
+- Accumulation system rewards bullet investment
+- Can turn traps into rewards with enough shooting
 
 #### Multiplier Zones
 
@@ -464,45 +531,80 @@ Pattern: Strategic Sequencing
 - Can multiply negative values (risk!)
 - High-value moments feel exciting
 
-### 6. Projectile System
+### 6. Projectile System (✅ Implemented Week 2)
 
 **Auto-Firing:**
-- Constant fire rate (1 shot per 0.5 seconds)
+- Constant fire rate (0.5 seconds between volleys)
 - No player input required
-- Fires straight ahead (Z-axis)
-- Despawn at max range or on hit
+- Each player unit fires one projectile per volley
+- Fires straight up (negative Y direction)
+- Spread across full formation width (±30px)
+- Despawn after 800px traveled or off-screen
 
 **Projectile Properties:**
 ```gdscript
-const PROJECTILE_SPEED := 300.0  # Pixels per second
-const FIRE_RATE := 0.5  # Seconds between shots
-const MAX_RANGE := 400.0  # Pixels
-const DAMAGE_TO_ENEMY := 5  # Reduces enemy unit_count
-const GATE_CHARGE := 5  # Adds to gate value
-const BARREL_HIT := 1  # Decrements barrel bullets_remaining
+# scripts/projectile.gd
+extends Area2D
+class_name Projectile
+
+const SPEED := 200.0  # Pixels per second (upward)
+const MAX_DISTANCE := 800.0  # Despawn distance
+
+# Collision configuration
+collision_layer = 128  # Layer 8
+collision_mask = 6     # Detects layers 2 (enemies) and 3 (collectibles)
 ```
 
-**Targeting:**
-- Fires straight up (negative Y direction)
-- Hits first object in path
-- Priority: Enemies > Barrels > Gates (determined by Y-distance)
+**Firing Implementation:**
+```gdscript
+# scripts/player_manager_2d.gd
+const FIRE_RATE := 0.5  # Seconds between shots
+const FORMATION_RADIUS := 30.0  # Formation width
+
+func fire_projectiles() -> void:
+    # Each unit fires a projectile spread across full formation width
+    for i in player_units.size():
+        var projectile := projectile_scene.instantiate()
+        var offset_x := randf_range(-FORMATION_RADIUS, FORMATION_RADIUS)
+        projectile.position = global_position + Vector2(offset_x, -20)
+        get_parent().add_child(projectile)
+```
+
+**Collision Detection:**
+- Uses Area2D with `area_entered` signal
+- Dual-check pattern for different scene structures:
+  - Direct check: `area.has_method("on_projectile_hit")` (Barrel, Gate)
+  - Parent check: `area.get_parent().has_method()` (EnemyGroup)
+- Destroys projectile on hit
 
 **Hit Effects:**
-- **Enemy:** Reduce unit_count by 5
-- **Barrel:** Decrement bullets_remaining (opens when 0)
-- **Gate:** Increase value by 5
+- **Enemy:** Destroys one enemy unit via `on_projectile_hit()`
+- **Barrel:** Decrements `bullets_remaining` (opens when 0)
+- **Gate:** Increases `current_value` by +5
+- All targets implement `on_projectile_hit()` interface
 
 **Visual Design:**
-- Simple circle sprite or bullet sprite
-- Bright color (yellow/orange)
-- Trail particle effect (optional)
-- Impact flash on hit
+- Size: 8x8 pixels (smallest object type)
+- Sprite: tile_0007.png from micro-roguelike pack
+- Color: Yellow tint (modulate Color(1, 1, 0.5, 1))
+- Collision shape: CircleShape2D radius 4px
+- No trail effects (performance consideration)
+
+**Collision Layer System:**
+| Layer | Bit | Value | Objects |
+|-------|-----|-------|---------|
+| 1 | 0 | 1 | Player (CharacterBody2D) |
+| 2 | 1 | 2 | Enemies (EnemyGroup Area2D) |
+| 3 | 2 | 4 | Collectibles (Barrel, Gate) |
+| 8 | 7 | 128 | Projectiles |
 
 **Design Rationale:**
 - Auto-fire keeps focus on horizontal movement
-- Simple straight trajectory
-- Bullet economy creates prioritization decisions
+- Multiple projectiles per volley scales with unit count
+- Spread covers full formation width for better coverage
+- Bullet economy creates prioritization decisions (can't shoot everything)
 - Multi-purpose targeting (enemies/barrels/gates)
+- Small size (8x8) distinguishes from other objects visually
 
 ---
 
@@ -667,22 +769,24 @@ Bottom: Distance/Score (small)
 - Camera follow system
 - Ground collision
 
-### Week 2: Physical Units & Shooting
+### Week 2: Physical Units & Shooting ✅ COMPLETE
 **Major Refactor:**
-- Replace HUD counter with physical player units
-- Player group manager (spawn/remove units)
-- Physical player unit models in tight formation
-- Enemy groups (spawned as clusters)
-- Refactor collision to destroy individual units
-- Position all objects on ground (not floating)
-- Scale: units small (0.3-0.5), collectibles medium (1.0-1.5)
+- ✅ Replace HUD counter with physical player units
+- ✅ Player group manager (spawn/remove units)
+- ✅ Physical player unit sprites in tight formation (15 starting units, 30px radius)
+- ✅ Enemy groups (spawned as clusters)
+- ✅ Refactor collision to destroy individual units
+- ✅ Position all objects on ground (2D overhead)
+- ✅ Scale hierarchy: projectiles (8x8) < units (16x16) < barrels (32x32) < gates (96x32)
 
 **New Features:**
-- Projectile auto-fire system
-- Barrel shoot-to-open mechanic
-- Unopened barrel damage
-- Gate system (shoot to charge)
-- Negative gates
+- ✅ Projectile auto-fire system (0.5s intervals, one per unit)
+- ✅ Barrel shoot-to-open mechanic (bullets_required counter)
+- ✅ Unopened barrel damage (penalty system)
+- ✅ Gate system (shoot to charge, +5 per hit)
+- ✅ Negative gates (start at negative values)
+- ✅ Enemy projectile damage (thin swarms before collision)
+- ✅ Visual feedback (bullet counters, color tinting, value labels)
 
 ### Week 3: Difficulty & Polish
 - Multiplier zones
@@ -756,14 +860,15 @@ Bottom: Distance/Score (small)
 
 ---
 
-**Document Version:** 4.0
+**Document Version:** 5.0
 **Last Updated:** 2024-12-09
-**Status:** Major revision - 2D overhead perspective
+**Status:** Week 2 Projectile Combat Complete
 **Changes:**
-- Converted from 3D to 2D overhead view
-- Enemies chase player (never roll off screen)
-- Collectibles scroll down (can be missed)
-- Barrels require multiple bullet hits to open (bullets_required value)
-- Barrels show value on top, bullets remaining in front
-- All coordinates changed from Vector3/Z-axis to Vector2/Y-axis
-- Scale changed from world units to pixels
+- Week 2 implementation complete: projectile system, barrel multi-shot, gate accumulation
+- Projectile auto-fire system (0.5s intervals, one per unit, spread across formation)
+- Barrel shoot-to-open mechanics (bullets_required counter, penalty/reward system)
+- Gate accumulation system (starting_value ± projectile hits, color-coded feedback)
+- Enemy projectile damage (thin swarms before collision)
+- Size hierarchy established: projectiles (8x8) < units (16x16) < barrels (32x32) < gates (96x32)
+- Collision layer system documented (layers 1, 2, 3, 8)
+- Visual feedback systems (bullet counters, color tinting, value labels)

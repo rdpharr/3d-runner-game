@@ -1,0 +1,43 @@
+[gd_scene load_steps=6 format=3 uid="uid://bvpqjs5w8x2kt"]
+
+[ext_resource type="Script" path="res://scripts/gate.gd" id="1_gate"]
+[ext_resource type="Texture2D" path="res://assets/kenney_micro-roguelike/Tiles/Colored/tile_0060.png" id="2_tile_left"]
+[ext_resource type="Texture2D" path="res://assets/kenney_micro-roguelike/Tiles/Colored/tile_0061.png" id="3_tile_center"]
+[ext_resource type="Texture2D" path="res://assets/kenney_micro-roguelike/Tiles/Colored/tile_0059.png" id="4_tile_right"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_gate"]
+size = Vector2(96, 32)
+
+[node name="Gate" type="Area2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_gate")
+
+[node name="Sprite2D" type="Node2D" parent="."]
+
+[node name="LeftTile" type="Sprite2D" parent="Sprite2D"]
+position = Vector2(-32, 0)
+texture = ExtResource("2_tile_left")
+scale = Vector2(4, 4)
+
+[node name="CenterTile" type="Sprite2D" parent="Sprite2D"]
+position = Vector2(0, 0)
+texture = ExtResource("3_tile_center")
+scale = Vector2(4, 4)
+
+[node name="RightTile" type="Sprite2D" parent="Sprite2D"]
+position = Vector2(32, 0)
+texture = ExtResource("4_tile_right")
+scale = Vector2(4, 4)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_gate")
+
+[node name="ValueLabel" type="Label" parent="."]
+offset_left = -50.0
+offset_top = -40.0
+offset_right = 50.0
+offset_bottom = -10.0
+theme_override_font_sizes/font_size = 32
+text = "0"
+horizontal_alignment = 1

@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://beqeqk8c4fgw7" path="res://assets/kenney_micro-roguelike/Tiles/Colored/tile_0100.png" id="2_barrel_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_barrel"]
-size = Vector2(16, 16)
+size = Vector2(32, 32)
 
 [node name="Barrel" type="Area2D"]
 collision_layer = 4
@@ -13,17 +13,26 @@ script = ExtResource("1_barrel")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_barrel_texture")
-scale = Vector2(2, 2)
+scale = Vector2(4, 4)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_barrel")
 
-[node name="Label" type="Label" parent="."]
-offset_left = -20.0
-offset_top = -30.0
-offset_right = 20.0
-offset_bottom = -10.0
-theme_override_colors/font_color = Color(0, 1, 0, 1)
-theme_override_font_sizes/font_size = 12
-text = "+15"
+[node name="ValueLabel" type="Label" parent="."]
+offset_left = -30.0
+offset_top = -40.0
+offset_right = 30.0
+offset_bottom = -15.0
+theme_override_font_sizes/font_size = 16
+text = "15"
+horizontal_alignment = 1
+
+[node name="BulletLabel" type="Label" parent="."]
+offset_left = -15.0
+offset_top = -5.0
+offset_right = 15.0
+offset_bottom = 20.0
+theme_override_colors/font_color = Color(1, 1, 0, 1)
+theme_override_font_sizes/font_size = 24
+text = "2"
 horizontal_alignment = 1

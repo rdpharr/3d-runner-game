@@ -68,3 +68,7 @@ func handle_collision(player: PlayerManager) -> void:
 	for i in damage:
 		player.remove_player_unit()
 		remove_enemy_unit()
+
+func on_projectile_hit() -> void:
+	"""Called by Projectile when hit"""
+	remove_enemy_unit()

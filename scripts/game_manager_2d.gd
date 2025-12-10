@@ -4,6 +4,7 @@ extends Node2D
 @export var player_manager_scene: PackedScene
 @export var enemy_group_scene: PackedScene
 @export var barrel_scene: PackedScene
+@export var gate_scene: PackedScene
 
 # Configuration
 const VIEWPORT_WIDTH := 800.0
@@ -44,6 +45,8 @@ func spawn_test_objects() -> void:
 		enemy_group_scene = load("res://scenes/enemies/enemy_group.tscn")
 	if not barrel_scene:
 		barrel_scene = load("res://scenes/collectibles/barrel.tscn")
+	if not gate_scene:
+		gate_scene = load("res://scenes/collectibles/gate.tscn")
 
 	# Spawn enemies at top of screen (negative Y, off-viewport)
 	# They will chase player
@@ -59,6 +62,12 @@ func spawn_test_objects() -> void:
 	spawn_barrel(Vector2(0, -350), 20)
 	spawn_barrel(Vector2(150, -450), 25)
 
+	# Spawn gates at top of screen
+	# Test neutral, negative, and positive gates
+	spawn_gate(Vector2(200, -300), 0)      # Neutral gate
+	spawn_gate(Vector2(-200, -500), -15)   # Negative gate (trap!)
+	spawn_gate(Vector2(100, -700), 10)     # Positive gate
+
 func spawn_enemy(pos: Vector2, units: int) -> void:
 	var enemy := enemy_group_scene.instantiate()
 	enemy.position = pos
@@ -70,6 +79,12 @@ func spawn_barrel(pos: Vector2, val: int) -> void:
 	barrel.position = pos
 	barrel.value = val
 	add_child(barrel)
+
+func spawn_gate(pos: Vector2, start_value: int) -> void:
+	var gate := gate_scene.instantiate()
+	gate.position = pos
+	gate.starting_value = start_value
+	add_child(gate)
 
 func setup_hud() -> void:
 	# Create HUD layer
