@@ -11,11 +11,20 @@ const MOVEMENT_SMOOTHING := 0.2
 @export var starting_units := 15
 var player_units: Array[Sprite2D] = []
 const FORMATION_RADIUS := 30.0  # Pixels for circular swarm
+const MAX_PLAYER_UNITS := 200  # Memory management cap
 
 # Projectile system
 const FIRE_RATE := 0.5  # Seconds between shots
+const PROJECTILE_WIDTH := 8.0  # Pixels
+const WAVE_DELAY := 0.1  # Seconds between waves
+const MAX_PROJECTILES_MULTIPLIER := 5.0  # Max projectiles = 5 × (width / 8)
 @export var projectile_scene: PackedScene
 var fire_timer := 0.0
+var pending_waves: Array[Array] = []  # Queue of projectile data arrays
+var wave_timer := 0.0
+
+# UI
+var count_label: Label
 
 # Signals
 signal unit_count_changed(new_count: int)
@@ -31,14 +40,33 @@ func _ready() -> void:
 	for i in starting_units:
 		spawn_player_unit()
 
+	# Create floating count label
+	count_label = Label.new()
+	count_label.name = "CountLabel"
+	count_label.position = Vector2(0, -50)
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	count_label.add_theme_font_size_override("font_size", 32)
+	count_label.modulate = Color.WHITE
+	count_label.z_index = 10
+	add_child(count_label)
+
+	update_count_label()
 	unit_count_changed.emit(player_units.size())
 
 func _process(delta: float) -> void:
-	# Auto-fire projectiles (each unit fires)
+	# Auto-fire timer
 	fire_timer += delta
-	if fire_timer >= FIRE_RATE and player_units.size() > 0:
+	if fire_timer >= FIRE_RATE and player_units.size() > 0 and pending_waves.size() == 0:
 		fire_projectiles()
 		fire_timer = 0.0
+
+	# Wave delay timer
+	if pending_waves.size() > 0:
+		wave_timer += delta
+		if wave_timer >= WAVE_DELAY:
+			fire_wave(pending_waves.pop_front())
+			wave_timer = 0.0
 
 func _physics_process(_delta: float) -> void:
 	# Player is stationary in Y (bottom of screen)
@@ -60,6 +88,10 @@ func _physics_process(_delta: float) -> void:
 	move_and_slide()
 
 func spawn_player_unit() -> void:
+	# Check cap before spawning
+	if player_units.size() >= MAX_PLAYER_UNITS:
+		return  # Silently refuse to spawn beyond cap
+
 	# Load unit scene if not set
 	if not player_unit_scene:
 		player_unit_scene = load("res://scenes/units/player_unit.tscn")
@@ -78,6 +110,7 @@ func remove_player_unit() -> void:
 	if player_units.size() > 0:
 		var unit: Sprite2D = player_units.pop_back()
 		unit.queue_free()
+		update_count_label()
 		unit_count_changed.emit(player_units.size())
 
 		if player_units.size() <= 0:
@@ -85,9 +118,16 @@ func remove_player_unit() -> void:
 			set_physics_process(false)
 
 func add_units(amount: int) -> void:
+	var initial_size := player_units.size()
 	for i in amount:
 		spawn_player_unit()
-	unit_count_changed.emit(player_units.size())
+		if player_units.size() >= MAX_PLAYER_UNITS:
+			break  # Stop early if cap reached
+
+	# Only emit if count actually changed
+	if player_units.size() != initial_size:
+		update_count_label()
+		unit_count_changed.emit(player_units.size())
 
 func take_damage(amount: int) -> void:
 	for i in amount:
@@ -95,16 +135,67 @@ func take_damage(amount: int) -> void:
 		if player_units.size() <= 0:
 			break
 
+func calculate_formation_bounds() -> Dictionary:
+	if player_units.size() == 0:
+		return {"min_x": 0.0, "max_x": 0.0, "width": 0.0}
+
+	var min_x := INF
+	var max_x := -INF
+
+	for unit in player_units:
+		min_x = min(min_x, unit.position.x)
+		max_x = max(max_x, unit.position.x)
+
+	return {
+		"min_x": min_x,
+		"max_x": max_x,
+		"width": max_x - min_x
+	}
+
 func fire_projectiles() -> void:
 	if not projectile_scene:
 		projectile_scene = load("res://scenes/projectile.tscn")
 		if not projectile_scene:
 			return
 
-	# Each unit fires a projectile spread across full formation width
-	for i in player_units.size():
+	var bounds: Dictionary = calculate_formation_bounds()
+	var formation_width: float = max(bounds.width, PROJECTILE_WIDTH)
+
+	# Calculate max projectiles this volley can fire
+	var max_per_wave: int = int(floor(formation_width / PROJECTILE_WIDTH))
+	var max_total: int = int(MAX_PROJECTILES_MULTIPLIER * max_per_wave)
+
+	# Determine how many projectiles to fire (capped)
+	var projectiles_to_fire: int = min(player_units.size(), max_total)
+
+	# Split into waves
+	var waves: int = int(ceil(float(projectiles_to_fire) / float(max_per_wave)))
+	pending_waves.clear()
+
+	for wave_index in range(waves):
+		var wave_data: Array = []
+		var start_idx: int = wave_index * max_per_wave
+		var end_idx: int = min(start_idx + max_per_wave, projectiles_to_fire)
+		var projectiles_in_wave: int = end_idx - start_idx
+
+		# Generate evenly-spaced X positions within formation width
+		for i in range(projectiles_in_wave):
+			var x_offset: float = bounds.min_x + (bounds.width * i / float(max(projectiles_in_wave - 1, 1)))
+			wave_data.append(x_offset)
+
+		pending_waves.append(wave_data)
+
+	# Fire first wave immediately
+	if pending_waves.size() > 0:
+		fire_wave(pending_waves.pop_front())
+		wave_timer = 0.0
+
+func fire_wave(x_offsets: Array) -> void:
+	for x_offset in x_offsets:
 		var projectile := projectile_scene.instantiate()
-		# Spread across full FORMATION_RADIUS width (-30 to +30)
-		var offset_x := randf_range(-FORMATION_RADIUS, FORMATION_RADIUS)
-		projectile.position = global_position + Vector2(offset_x, -20)
+		projectile.position = global_position + Vector2(x_offset, -20)
 		get_parent().add_child(projectile)
+
+func update_count_label() -> void:
+	if count_label:
+		count_label.text = str(player_units.size())

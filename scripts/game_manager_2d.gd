@@ -12,9 +12,11 @@ const VIEWPORT_HEIGHT := 600.0
 
 var player: PlayerManager
 var camera: Camera2D
+var background: ScrollingBackground
 
 func _ready() -> void:
 	setup_camera()
+	setup_background()
 	spawn_player()
 	spawn_test_objects()
 	setup_hud()
@@ -23,6 +25,11 @@ func setup_camera() -> void:
 	camera = Camera2D.new()
 	camera.name = "Camera"
 	add_child(camera)
+
+func setup_background() -> void:
+	background = ScrollingBackground.new()
+	background.name = "Background"
+	add_child(background)
 
 func _process(_delta: float) -> void:
 	# Camera stays fixed - player moves within viewport
@@ -50,23 +57,23 @@ func spawn_test_objects() -> void:
 
 	# Spawn enemies at top of screen (negative Y, off-viewport)
 	# They will chase player
-	spawn_enemy(Vector2(-150, -100), 10)
-	spawn_enemy(Vector2(150, -200), 15)
-	spawn_enemy(Vector2(0, -300), 20)
-	spawn_enemy(Vector2(-100, -400), 8)
+	spawn_enemy(Vector2(-150, -100), 8)
+	spawn_enemy(Vector2(150, -200), 25)
+	spawn_enemy(Vector2(0, -300), 150)
+	spawn_enemy(Vector2(-100, -400), 250)
 
 	# Spawn barrels at top of screen
 	# They will scroll straight down
 	spawn_barrel(Vector2(100, -150), 10)
 	spawn_barrel(Vector2(-100, -250), 15)
-	spawn_barrel(Vector2(0, -350), 20)
-	spawn_barrel(Vector2(150, -450), 25)
+	spawn_barrel(Vector2(0, -350), 100)
+	spawn_barrel(Vector2(150, -450), 250)
 
 	# Spawn gates at top of screen
 	# Test neutral, negative, and positive gates
 	spawn_gate(Vector2(200, -300), 0)      # Neutral gate
 	spawn_gate(Vector2(-200, -500), -15)   # Negative gate (trap!)
-	spawn_gate(Vector2(100, -700), 10)     # Positive gate
+	spawn_gate(Vector2(100, -700), -500)     # Positive gate
 
 func spawn_enemy(pos: Vector2, units: int) -> void:
 	var enemy := enemy_group_scene.instantiate()
@@ -87,7 +94,7 @@ func spawn_gate(pos: Vector2, start_value: int) -> void:
 	add_child(gate)
 
 func setup_hud() -> void:
-	# Create HUD layer
+	# Create HUD layer (empty until game over)
 	var canvas_layer := CanvasLayer.new()
 	canvas_layer.name = "HUD"
 
@@ -99,13 +106,8 @@ func setup_hud() -> void:
 	if hud_script:
 		hud.set_script(hud_script)
 
-	# Unit counter label
-	var unit_label := Label.new()
-	unit_label.name = "Units"
-	unit_label.position = Vector2(20, 20)
-	unit_label.text = "15"
-	unit_label.add_theme_font_size_override("font_size", 48)
+	# No unit counter - now shown as floating label on player group
+	# Game over message will be created by hud.gd when needed
 
-	hud.add_child(unit_label)
 	canvas_layer.add_child(hud)
 	add_child(canvas_layer)

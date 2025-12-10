@@ -1,22 +1,37 @@
 extends Control
 
 # Node references
-@onready var unit_label := $Units
+var game_over_label: Label
+var restart_button: Button
 
 func _ready() -> void:
-	# Find player and connect to signal
+	# Find player and connect to game over signal only
 	var player := get_tree().get_first_node_in_group("player")
 	if player and player is PlayerManager:
-		player.unit_count_changed.connect(_on_unit_count_changed)
 		player.game_over.connect(_on_game_over)
-		_on_unit_count_changed(player.player_units.size())
-
-func _on_unit_count_changed(new_count: int) -> void:
-	if unit_label:
-		unit_label.text = str(new_count)
 
 func _on_game_over() -> void:
-	# Display game over message
-	if unit_label:
-		unit_label.text = "GAME OVER"
-		unit_label.modulate = Color.RED
+	# Create game over label on demand
+	if not game_over_label:
+		game_over_label = Label.new()
+		game_over_label.name = "GameOver"
+		game_over_label.set_anchors_preset(Control.PRESET_CENTER)
+		game_over_label.text = "GAME OVER"
+		game_over_label.add_theme_font_size_override("font_size", 64)
+		game_over_label.modulate = Color.RED
+		add_child(game_over_label)
+
+	# Create restart button
+	if not restart_button:
+		restart_button = Button.new()
+		restart_button.name = "RestartButton"
+		restart_button.position = Vector2(350, 350)  # Centered below "GAME OVER"
+		restart_button.size = Vector2(100, 40)
+		restart_button.text = "RESTART"
+		restart_button.add_theme_font_size_override("font_size", 18)
+		restart_button.pressed.connect(_on_restart_pressed)
+		add_child(restart_button)
+
+func _on_restart_pressed() -> void:
+	# Reload current scene (clean reset)
+	get_tree().reload_current_scene()

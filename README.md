@@ -22,9 +22,10 @@ A Godot 4 2D overhead runner game where players manage physical unit swarms thro
 ### Unit System (Physical Swarm)
 - Player units are 8x8 pixel sprites (blue tinted, tile_0004.png)
 - 15 starting units in tight circular formation (30px radius)
+- Maximum 200 units (memory management cap)
 - Enemy units are 8x8 pixel sprites (red tinted, tile_0010.png)
 - Collisions destroy individual physical units
-- Unit count visible from swarm size (no HUD needed)
+- Unit count visible as floating white/red numbers above groups
 
 ### Object Movement
 Objects move in two ways:
@@ -67,7 +68,9 @@ Objects move in two ways:
 
 ### Projectile System
 - Auto-fire upward every 0.5 seconds
-- Each player unit fires one projectile (spread across formation)
+- Wave-based firing: projectiles fire only as wide as player formation
+- Multiple waves (0.1s delay) when unit count exceeds formation width
+- Maximum projectiles per volley: 5 × (formation width / 8 pixels)
 - Small 8x8 pixel yellow sprites
 - Hits: enemies (destroy unit), barrels (reduce counter), gates (add +5 value)
 - Bullet economy: can't shoot everything
@@ -81,10 +84,20 @@ Objects move in two ways:
 
 ## Current Status
 
-**Phase:** Week 2 - Projectile Combat System Complete ✓
-**Build Status:** All Week 2 features functional
+**Phase:** Session 4 - UI/UX Polish & Gameplay Refinements Complete ✓
+**Build Status:** All Session 4 features functional
 
-### Completed - Week 2 Projectile Combat (Current)
+### Completed - Session 4: UI/UX & Gameplay Polish (Current)
+- [x] Wave-based projectile firing (fires only as wide as player group)
+- [x] Multiple projectile waves with 0.1s stagger
+- [x] Player unit cap (200 max for memory management)
+- [x] Scrolling background tiles (floor tile_0068, walls tile_0050/0051)
+- [x] Floating group size indicators (white for player, red for enemies)
+- [x] HUD simplified (only shows Game Over and Restart button)
+- [x] Restart button (appears on game over)
+- [x] Improved visual feedback and sense of movement
+
+### Completed - Week 2 Projectile Combat
 - [x] Auto-fire projectile system (0.5s intervals, one per unit)
 - [x] Projectile collision detection (enemies, barrels, gates)
 - [x] Barrel multi-shot mechanics (bullets_required counter)
@@ -147,15 +160,16 @@ game_clone/
 │   └── collectibles/
 │       └── barrel.tscn       # Barrel (Area2D + sprite)
 ├── scripts/            # GDScript files (.gd)
-│   ├── player_manager_2d.gd  # Physical swarm manager + auto-fire
+│   ├── player_manager_2d.gd  # Physical swarm manager + wave-based auto-fire
 │   ├── player_unit.gd        # Individual unit sprite
 │   ├── enemy_group_2d.gd     # Enemy chase + cluster + projectile damage
 │   ├── enemy_unit.gd         # Individual enemy sprite
 │   ├── barrel_2d.gd          # Shoot-to-open collectible
 │   ├── gate.gd               # Gate accumulation system
 │   ├── projectile.gd         # Projectile movement and collision
+│   ├── scrolling_background.gd  # Infinite scrolling tile system
 │   ├── game_manager_2d.gd    # Main game controller
-│   └── hud.gd                # UI overlay
+│   └── hud.gd                # UI overlay (Game Over + Restart)
 ├── assets/
 │   ├── kenney_micro-roguelike/  # 8x8 pixel sprites
 │   │   └── Tiles/Colored/
@@ -166,6 +180,9 @@ game_clone/
 │   │       ├── tile_0060.png    # Gate left tile (8x8)
 │   │       ├── tile_0061.png    # Gate center tile (8x8)
 │   │       ├── tile_0059.png    # Gate right tile (8x8)
+│   │       ├── tile_0068.png    # Floor tile (8x8)
+│   │       ├── tile_0050.png    # Left wall tile (8x8)
+│   │       ├── tile_0051.png    # Right wall tile (8x8)
 │   │       └── [314 more sprites...]
 │   └── kenney_top-down-shooter/ # Backup sprites
 ├── docs/                 # Development documentation
@@ -260,16 +277,25 @@ See [DESIGN.md](DESIGN.md) for detailed design documentation.
 - F6 runs current scene only
 - Check Output panel for errors/warnings
 
-**Test Checklist (Week 2 - Projectile Combat):**
+**Test Checklist (Session 4 - UI/UX Polish):**
 - [x] Player moves horizontally within viewport (not camera-centered)
 - [x] 15 player units spawn in circular formation
+- [x] Player units cap at 200 max
 - [x] Enemies chase player continuously
 - [x] Barrels scroll straight down
 - [x] Physical collision destroys individual sprites
-- [x] HUD shows correct unit count
+- [x] Floating labels show player count (white) above player group
+- [x] Floating labels show enemy count (red) above enemy groups
+- [x] HUD hidden until game over
 - [x] Game over at 0 units
-- [x] Projectiles auto-fire every 0.5 seconds
-- [x] Each unit fires one projectile (spread across formation)
+- [x] Restart button appears on game over
+- [x] Restart button reloads scene correctly
+- [x] Background tiles scroll smoothly at 80 px/sec
+- [x] Floor tiles (tile_0068) render behind gameplay
+- [x] Wall tiles (tile_0050/0051) visible at edges
+- [x] Projectiles fire in waves (0.1s stagger)
+- [x] Projectile width matches player formation width
+- [x] Wave-based firing works with high unit counts
 - [x] Projectiles hit enemies and destroy units
 - [x] Barrels show bullets_required counter
 - [x] Shooting barrels reduces counter
@@ -341,6 +367,18 @@ This is a learning project, not for commercial release.
 
 ## Changelog
 
+### 2024-12-09 - Session 4: UI/UX Polish & Gameplay Refinements Complete
+- **Wave-Based Projectile Firing:** Projectiles fire only as wide as player formation
+- **Projectile Waves:** Multiple waves with 0.1s delay when unit count exceeds formation width
+- **Player Unit Cap:** Maximum 200 units for memory management
+- **Scrolling Background:** Floor tiles (tile_0068) and wall tiles (tile_0050/0051) scroll at 80 px/sec
+- **Floating Group Indicators:** White numbers above player, red numbers above enemies
+- **HUD Simplification:** Removed always-visible unit counter, only shows Game Over
+- **Restart Button:** Appears on game over, reloads scene
+- **Visual Polish:** Improved sense of movement and better feedback
+- **Type Safety:** Fixed GDScript type annotations for Godot 4.5+ strict mode
+- Session 4 complete: All UI/UX improvements functional
+
 ### 2024-12-09 - Session 3: Week 2 Projectile Combat Complete
 - **Projectile System:** Auto-fire every 0.5s, one per player unit, spread across formation
 - **Barrel Multi-Shot:** bullets_required counter, shoot-to-open, penalty/reward system
@@ -383,4 +421,4 @@ This is a learning project, not for commercial release.
 
 ---
 
-**Next Session:** Week 3 - Multiplier zones, difficulty scaling, particle effects, sound
+**Next Session:** Week 3 - Multiplier zones, difficulty scaling, particle effects, sound, mobile touch controls

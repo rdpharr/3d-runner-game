@@ -10,7 +10,9 @@
       "mcp__godot__get_debug_output",
       "mcp__godot__stop_project",
       "Bash(ls:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(tree:*)",
+      "Bash(timeout /t 3 /nobreak)"
     ],
     "deny": [],
     "ask": []
