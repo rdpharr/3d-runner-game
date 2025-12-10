@@ -12,7 +12,8 @@
       "Bash(ls:*)",
       "Bash(git add:*)",
       "Bash(tree:*)",
-      "Bash(timeout /t 3 /nobreak)"
+      "Bash(timeout /t 3 /nobreak)",
+      "Bash(file:*)"
     ],
     "deny": [],
     "ask": []

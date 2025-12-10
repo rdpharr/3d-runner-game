@@ -2,11 +2,11 @@ extends Sprite2D
 class_name EnemyUnit
 
 # Visual configuration
-const UNIT_SCALE := 2.0  # Double size (8x8 -> 16x16)
+const UNIT_SCALE := 1.0  # Native size (32x32)
 
 func _ready() -> void:
-	# Load texture from micro-roguelike pack
-	texture = load("res://assets/kenney_micro-roguelike/Tiles/Colored/tile_0010.png")
+	# Load texture from pixellab pack
+	texture = load("res://assets/pixellab/enemy.png")
 	scale = Vector2(UNIT_SCALE, UNIT_SCALE)
 
 	# Center origin

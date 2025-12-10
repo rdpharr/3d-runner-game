@@ -4,13 +4,13 @@ class_name PlayerManager
 # Movement configuration
 const PLAYABLE_WIDTH := 600.0  # World units (-300 to +300)
 const PLAYER_Y_POSITION := 500.0  # Fixed at bottom of screen
-const MOVEMENT_SMOOTHING := 0.2
+const HORIZONTAL_SPEED := 80.0  # Pixels per second (matches scroll speed)
 
 # Physical unit system
 @export var player_unit_scene: PackedScene
 @export var starting_units := 15
 var player_units: Array[Sprite2D] = []
-const FORMATION_RADIUS := 30.0  # Pixels for circular swarm
+const FORMATION_RADIUS := 60.0  # Pixels for circular swarm (doubled for 2x larger units)
 const MAX_PLAYER_UNITS := 200  # Memory management cap
 
 # Projectile system
@@ -68,7 +68,7 @@ func _process(delta: float) -> void:
 			fire_wave(pending_waves.pop_front())
 			wave_timer = 0.0
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	# Player is stationary in Y (bottom of screen)
 	velocity.y = 0
 
@@ -81,8 +81,8 @@ func _physics_process(_delta: float) -> void:
 	var target_x := normalized_x * (PLAYABLE_WIDTH / 2.0)
 	target_x = clamp(target_x, -PLAYABLE_WIDTH / 2.0, PLAYABLE_WIDTH / 2.0)
 
-	# Smooth horizontal movement
-	position.x = lerp(position.x, target_x, MOVEMENT_SMOOTHING)
+	# Move toward target at fixed speed (matches scroll speed)
+	position.x = move_toward(position.x, target_x, HORIZONTAL_SPEED * delta)
 
 	# Apply movement
 	move_and_slide()

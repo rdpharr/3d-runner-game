@@ -8,7 +8,7 @@ const CHASE_SPEED := 100.0  # Pixels per second
 @export var enemy_unit_scene: PackedScene
 @export var unit_count := 20
 var enemy_units: Array[Sprite2D] = []
-const FORMATION_RADIUS := 20.0  # Pixels for cluster
+const FORMATION_RADIUS := 40.0  # Pixels for cluster (doubled for 2x larger units)
 
 # Collision detection
 @onready var collision_area := $Area2D

@@ -1,10 +1,10 @@
 [gd_scene load_steps=4 format=3 uid="uid://c8kpx2viaqw0n"]
 
 [ext_resource type="Script" path="res://scripts/barrel_2d.gd" id="1_barrel"]
-[ext_resource type="Texture2D" uid="uid://beqeqk8c4fgw7" path="res://assets/kenney_micro-roguelike/Tiles/Colored/tile_0100.png" id="2_barrel_texture"]
+[ext_resource type="Texture2D" path="res://assets/pixellab/barrel.png" id="2_barrel_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_barrel"]
-size = Vector2(32, 32)
+size = Vector2(64, 64)
 
 [node name="Barrel" type="Area2D"]
 collision_layer = 4
@@ -13,7 +13,7 @@ script = ExtResource("1_barrel")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_barrel_texture")
-scale = Vector2(4, 4)
+scale = Vector2(1, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_barrel")
