@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" path="res://assets/pixellab/gate.png" id="2_gate_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_gate"]
-size = Vector2(64, 64)
+size = Vector2(96, 96)
 
 [node name="Gate" type="Area2D"]
 collision_layer = 4
@@ -13,16 +13,16 @@ script = ExtResource("1_gate")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_gate_texture")
-scale = Vector2(1, 1)
+scale = Vector2(1.5, 1.5)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_gate")
 
 [node name="ValueLabel" type="Label" parent="."]
-offset_left = -50.0
-offset_top = -40.0
-offset_right = 50.0
-offset_bottom = -10.0
-theme_override_font_sizes/font_size = 32
+offset_left = -60.0
+offset_top = -60.0
+offset_right = 60.0
+offset_bottom = -20.0
+theme_override_font_sizes/font_size = 36
 text = "0"
 horizontal_alignment = 1

@@ -14,6 +14,7 @@ var total_unit_count := 0  # Total units including overflow (unlimited)
 const FORMATION_RADIUS := 60.0  # Pixels for circular swarm (doubled for 2x larger units)
 const MAX_PLAYER_UNITS := 200  # Memory management cap
 const COLLISION_ACTIVATION_DISTANCE := 150.0  # Proximity for collision activation
+const FORMATION_REFORM_SPEED := 0.5  # Speed at which units return to formation (0-1)
 
 # Projectile system
 const FIRE_RATE := 0.5  # Seconds between shots
@@ -70,6 +71,9 @@ func _process(delta: float) -> void:
 		if wave_timer >= WAVE_DELAY:
 			fire_wave(pending_waves.pop_front())
 			wave_timer = 0.0
+
+	# Slowly reform units into circular formation
+	update_formation(delta)
 
 func _physics_process(delta: float) -> void:
 	# Player is stationary in Y (bottom of screen)
@@ -272,3 +276,24 @@ func fire_wave(x_offsets: Array) -> void:
 func update_count_label() -> void:
 	if count_label:
 		count_label.text = str(total_unit_count)  # Show total, not rendered
+
+func update_formation(delta: float) -> void:
+	"""Slowly crowd units together toward center"""
+	var unit_count: int = player_units.size()
+	if unit_count == 0:
+		return
+
+	# Calculate minimum crowd radius based on unit count (scales with army size)
+	var fill_ratio: float = float(unit_count) / float(MAX_PLAYER_UNITS)
+	var min_crowd_radius: float = 15.0 + (fill_ratio * 45.0)  # 15px at 0 units, 60px at 200 units
+
+	for i in unit_count:
+		var unit: Area2D = player_units[i]
+		if not unit:
+			continue
+
+		# Only pull toward center if outside minimum crowd radius
+		var distance: float = unit.position.length()
+		if distance > min_crowd_radius:
+			var target_pos := Vector2.ZERO
+			unit.position = unit.position.lerp(target_pos, FORMATION_REFORM_SPEED * delta * 0.5)
