@@ -24,8 +24,8 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 
 func calculate_bullets_needed(barrel_value: int) -> int:
-	# 1-10: 1 bullet, 11-20: 2 bullets, 21-30: 3 bullets, etc.
-	return max(1, barrel_value / 10)
+	# 5x more bullets required: 1-2: 1 bullet, 3-4: 2 bullets, etc.
+	return max(1, barrel_value / 2)
 
 func _physics_process(delta: float) -> void:
 	# Scroll straight down (positive Y)

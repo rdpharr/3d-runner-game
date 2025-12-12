@@ -3,12 +3,14 @@ class_name Gate
 
 # Movement configuration
 const VALUE_PER_HIT := 5
+const BULLETS_PER_VALUE := 10  # Bullets needed to change value by VALUE_PER_HIT
 const SCROLL_SPEED := 80.0  # Slower than barrels
 const DESPAWN_Y := 700.0
 
 # Gate properties
 @export var starting_value := 0  # Can be negative!
 var current_value := 0
+var bullets_hit := 0  # Track bullets hit
 
 # Visual references
 @onready var value_label := $ValueLabel
@@ -29,8 +31,13 @@ func _physics_process(delta: float) -> void:
 
 func on_projectile_hit() -> void:
 	"""Called by Projectile when hit"""
-	current_value += VALUE_PER_HIT
-	update_display()
+	bullets_hit += 1
+
+	# Only change value every BULLETS_PER_VALUE hits
+	if bullets_hit >= BULLETS_PER_VALUE:
+		current_value += VALUE_PER_HIT
+		bullets_hit = 0  # Reset counter
+		update_display()
 
 func update_display() -> void:
 	var tint_color: Color
