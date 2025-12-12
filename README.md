@@ -20,9 +20,11 @@ A Godot 4 2D overhead runner game where players manage physical unit swarms thro
 ### Unit System (Physical Swarm)
 - Player units: 32×32 pixel sprites (blue tinted)
 - 15 starting units in circular formation (60px radius)
-- Maximum 200 units (memory management cap)
+- Unlimited unit accumulation (200 rendered cap for performance)
+- Units slowly crowd together after losses
 - Enemy units: 32×32 pixel sprites (red tinted)
-- Collisions destroy individual physical units
+- Individual unit collision with proximity activation
+- Death particles and fade animations
 - Unit count visible as floating numbers above groups
 
 ### Object Movement
@@ -37,15 +39,15 @@ A Godot 4 2D overhead runner game where players manage physical unit swarms thro
 
 ### Collectibles
 
-**Barrels (Shoot-to-Open) - 64×64 pixels**
-- Require 1-3 bullets to open (based on value)
-- Show bullets_remaining counter (yellow text)
+**Barrels (Shoot-to-Open) - 128×128 pixels (2x scale)**
+- Require value/2 bullets to open (harder than before)
+- Show bullets_remaining counter (yellow text, 32px font)
 - Unopened: Damage player on collision
 - Opened: Reward player with units
 
-**Gates (Accumulation) - 64×64 pixels**
+**Gates (Accumulation) - 96×96 pixels (1.5x scale)**
 - Start at positive, zero, or negative value
-- Shoot to increase value (+5 per hit)
+- Shoot to increase value (+5 per 10 bullets)
 - Walk through to collect current value
 - Color coded: Green (positive), Red (negative), White (neutral)
 
@@ -60,13 +62,17 @@ A Godot 4 2D overhead runner game where players manage physical unit swarms thro
 **Implemented Features:**
 - ✓ Mouse-controlled horizontal movement (80 px/s)
 - ✓ Physical unit swarm system (60px formation radius)
+- ✓ Unlimited unit accumulation (200 rendered cap)
+- ✓ Formation reformation (units crowd together after losses)
+- ✓ Individual unit collision with proximity activation
+- ✓ Death particles and fade animations
 - ✓ Enemy chase behavior (40px formation radius)
 - ✓ Auto-fire projectile system with wave-based firing
-- ✓ Barrel multi-shot mechanics (shoot-to-open)
-- ✓ Gate accumulation system (starting values ± projectile hits)
+- ✓ Barrel multi-shot mechanics (value/2 bullets, 5x harder)
+- ✓ Gate accumulation system (10 bullets per value change)
+- ✓ 2-minute auto-spawning system with difficulty scaling
 - ✓ Scrolling background with ground/grass/tree tiles
-- ✓ Floating group size indicators
-- ✓ Player unit cap (200 max)
+- ✓ Left sidebar UI (Stop/Pause/Restart)
 - ✓ Game over and restart functionality
 
 **Next Steps (Week 3):**
@@ -85,8 +91,8 @@ A Godot 4 2D overhead runner game where players manage physical unit swarms thro
 **Assets:** Pixellab sprite pack
 - player.png (32×32)
 - enemy.png (32×32)
-- barrel.png (64×64)
-- gate.png (64×64)
+- barrel.png (64×64, displayed at 128×128)
+- gate.png (64×64, displayed at 96×96)
 - projectile.png (16×16, displayed at 8×8)
 - ground.png (128×128, displayed at 32×32)
 - grass.png (16×16, displayed at 32×32)
