@@ -13,7 +13,9 @@
       "Bash(git add:*)",
       "Bash(tree:*)",
       "Bash(timeout /t 3 /nobreak)",
-      "Bash(file:*)"
+      "Bash(file:*)",
+      "mcp__godot__list_projects",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

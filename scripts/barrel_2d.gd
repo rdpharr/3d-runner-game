@@ -44,8 +44,16 @@ func on_projectile_hit() -> void:
 	if bullets_remaining <= 0:
 		is_open = true
 		bullets_remaining = 0
+		give_reward()  # Immediately reward player when shot open
 
 	update_display()
+
+func give_reward() -> void:
+	"""Give units to player immediately when barrel is shot open"""
+	var player := get_tree().get_first_node_in_group("player") as PlayerManager
+	if player:
+		player.add_units(value)
+	queue_free()  # Destroy barrel after giving reward
 
 func update_display() -> void:
 	if is_open:
@@ -63,10 +71,6 @@ func update_display() -> void:
 
 func _on_body_entered(body: Node2D) -> void:
 	if body is PlayerManager:
-		if is_open:
-			# Reward!
-			body.add_units(value)
-		else:
-			# Penalty!
-			body.take_damage(value)
+		# Collision just destroys barrel (no reward/penalty)
+		# Player must shoot barrel open to get reward
 		queue_free()

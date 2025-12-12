@@ -11,10 +11,22 @@ const HORIZONTAL_SPEED := 80.0  # Pixels per second (matches scroll speed)
 @export var starting_units := 15
 var player_units: Array[Area2D] = []  # Rendered units (max 200)
 var total_unit_count := 0  # Total units including overflow (unlimited)
-const FORMATION_RADIUS := 60.0  # Pixels for circular swarm (doubled for 2x larger units)
+const FORMATION_RADIUS := 50.0  # Pixels for circular swarm (doubled for 2x larger units)
 const MAX_PLAYER_UNITS := 200  # Memory management cap
 const COLLISION_ACTIVATION_DISTANCE := 150.0  # Proximity for collision activation
-const FORMATION_REFORM_SPEED := 0.5  # Speed at which units return to formation (0-1)
+
+# Reformation system
+var is_reforming := false
+var reform_targets: Dictionary = {}  # Maps unit -> target position
+const REFORM_SPEED := 0.25  # Slow, consistent reformation speed
+const SMALL_GROUP_RADIUS := 50.0  # 1-50 units
+const MEDIUM_GROUP_RADIUS := 65.0  # 51-120 units
+const LARGE_GROUP_RADIUS := 55.0  # 121+ units
+
+# Backfill constants
+const BACKFILL_PER_FRAME := 50  # Units to spawn per frame in _process()
+const BACKFILL_PER_DEATH := 10  # Units to spawn per death event
+const REFORM_DISTANCE_TOLERANCE := 2.0  # Pixels - units closer than this are "in position"
 
 # Projectile system
 const FIRE_RATE := 0.5  # Seconds between shots
@@ -72,8 +84,17 @@ func _process(delta: float) -> void:
 			fire_wave(pending_waves.pop_front())
 			wave_timer = 0.0
 
-	# Slowly reform units into circular formation
-	update_formation(delta)
+	# Backfill units to maintain 200 rendered when total > 200
+	if total_unit_count > player_units.size() and player_units.size() < MAX_PLAYER_UNITS:
+		var units_needed: int = min(total_unit_count - player_units.size(), MAX_PLAYER_UNITS - player_units.size())
+		var units_to_spawn: int = min(BACKFILL_PER_FRAME, units_needed)
+		for i in units_to_spawn:
+			if total_unit_count > player_units.size() and player_units.size() < MAX_PLAYER_UNITS:
+				spawn_player_unit()
+
+	# Update reformation if active
+	if is_reforming:
+		update_formation(delta)
 
 func _physics_process(delta: float) -> void:
 	# Player is stationary in Y (bottom of screen)
@@ -131,10 +152,8 @@ func spawn_player_unit() -> void:
 		unit.call_deferred("set_collision_active", true)
 
 func remove_player_unit() -> void:
-	# Always decrement total
-	total_unit_count -= 1
-	if total_unit_count < 0:
-		total_unit_count = 0  # Safety clamp
+	# Decrement total count
+	decrement_unit_count()
 
 	# Only remove physical unit if total is now below rendered cap
 	# (This means we're eating into rendered units, not overflow)
@@ -142,40 +161,33 @@ func remove_player_unit() -> void:
 		var unit: Area2D = player_units.pop_back()
 		unit.queue_free()
 
-	# Update display
-	update_count_label()
-	unit_count_changed.emit(total_unit_count)
-
-	# Game over when total reaches 0
-	if total_unit_count <= 0:
-		game_over.emit()
-		set_physics_process(false)
+	# Check for game over
+	check_game_over()
 
 func on_unit_died(unit: PlayerUnit) -> void:
 	"""Called by PlayerUnit when it dies from collision"""
-	# Always decrement total
-	total_unit_count -= 1
-	if total_unit_count < 0:
-		total_unit_count = 0  # Safety clamp
+	# Decrement total count
+	decrement_unit_count()
 
-	# Remove from array
+	# Remove from array and reform targets
 	var idx := player_units.find(unit)
 	if idx >= 0:
 		player_units.remove_at(idx)
+	if reform_targets.has(unit):
+		reform_targets.erase(unit)
 
-	# If overflow exists (total > rendered), spawn replacement unit
-	# This maintains visual density at cap
-	if total_unit_count > player_units.size() and player_units.size() < MAX_PLAYER_UNITS:
+	# If overflow exists (total > rendered), spawn replacement units
+	# Spawn multiple per death to quickly restore visual density
+	var spawn_count := 0
+	while total_unit_count > player_units.size() and player_units.size() < MAX_PLAYER_UNITS and spawn_count < BACKFILL_PER_DEATH:
 		spawn_player_unit()
+		spawn_count += 1
 
-	# Update display
-	update_count_label()
-	unit_count_changed.emit(total_unit_count)
+	# Trigger reformation after unit death
+	trigger_reformation()
 
-	# Game over when total reaches 0
-	if total_unit_count <= 0:
-		game_over.emit()
-		set_physics_process(false)
+	# Check for game over
+	check_game_over()
 
 func update_unit_collisions() -> void:
 	"""Activate/deactivate unit collisions based on proximity to enemies"""
@@ -277,23 +289,63 @@ func update_count_label() -> void:
 	if count_label:
 		count_label.text = str(total_unit_count)  # Show total, not rendered
 
-func update_formation(delta: float) -> void:
-	"""Slowly crowd units together toward center"""
-	var unit_count: int = player_units.size()
-	if unit_count == 0:
+func decrement_unit_count() -> void:
+	"""Decrement total count with safety clamp and emit signal"""
+	total_unit_count -= 1
+	if total_unit_count < 0:
+		total_unit_count = 0  # Safety clamp
+
+	update_count_label()
+	unit_count_changed.emit(total_unit_count)
+
+func check_game_over() -> void:
+	"""Check and trigger game over if no units remain"""
+	if total_unit_count <= 0:
+		game_over.emit()
+		set_physics_process(false)
+
+func trigger_reformation() -> void:
+	"""Start a new reformation, canceling any ongoing one"""
+	if player_units.size() == 0:
 		return
 
-	# Calculate minimum crowd radius based on unit count (scales with army size)
-	var fill_ratio: float = float(unit_count) / float(MAX_PLAYER_UNITS)
-	var min_crowd_radius: float = 15.0 + (fill_ratio * 45.0)  # 15px at 0 units, 60px at 200 units
+	is_reforming = true
+	reform_targets.clear()
 
-	for i in unit_count:
-		var unit: Area2D = player_units[i]
+	# Determine target radius based on unit count (increasing visual density)
+	var target_radius := SMALL_GROUP_RADIUS
+	if player_units.size() > 120:
+		target_radius = LARGE_GROUP_RADIUS
+	elif player_units.size() > 50:
+		target_radius = MEDIUM_GROUP_RADIUS
+
+	# Assign random positions within radius to each unit
+	for unit in player_units:
 		if not unit:
 			continue
+		var angle := randf() * TAU
+		var distance := randf() * target_radius
+		reform_targets[unit] = Vector2(cos(angle) * distance, sin(angle) * distance)
 
-		# Only pull toward center if outside minimum crowd radius
-		var distance: float = unit.position.length()
-		if distance > min_crowd_radius:
-			var target_pos := Vector2.ZERO
-			unit.position = unit.position.lerp(target_pos, FORMATION_REFORM_SPEED * delta * 0.5)
+func update_formation(delta: float) -> void:
+	"""Slowly move units toward their reform targets"""
+	if not is_reforming or player_units.size() == 0:
+		return
+
+	var all_in_position := true
+
+	for unit in player_units:
+		if not unit or not reform_targets.has(unit):
+			continue
+
+		var target: Vector2 = reform_targets[unit]
+		var distance := unit.position.distance_to(target)
+
+		if distance > REFORM_DISTANCE_TOLERANCE:  # Still moving
+			unit.position = unit.position.lerp(target, REFORM_SPEED * delta)
+			all_in_position = false
+
+	# Stop reforming when all units reach their targets
+	if all_in_position:
+		is_reforming = false
+		reform_targets.clear()

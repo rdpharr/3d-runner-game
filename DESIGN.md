@@ -63,7 +63,13 @@ func _physics_process(delta: float) -> void:
 **Enemies (Chase):**
 - Spawn above screen, chase player position
 - Never despawn - always pursue
-- Speed: 100 px/s
+- Speed: 75 px/s (reduced 25% for balance)
+
+**Boss (Timer-Triggered):**
+- Spawns at 120 seconds (end of level timer)
+- Advances straight down at 60 px/s
+- 500 HP (requires sustained shooting)
+- Continuous collision damage (2 HP/sec boss, 10 units/sec player)
 
 **Collectibles (Scroll):**
 - Barrels and gates scroll straight down
@@ -130,25 +136,44 @@ func on_unit_died(unit: PlayerUnit) -> void:
 **Formation Reformation System:**
 ```gdscript
 # scripts/player_manager_2d.gd
-const FORMATION_REFORM_SPEED := 0.5  # Lerp speed (0-1)
+const SMALL_GROUP_RADIUS := 50.0   # 1-50 units
+const MEDIUM_GROUP_RADIUS := 65.0  # 51-120 units
+const LARGE_GROUP_RADIUS := 55.0   # 121+ units
+const REFORM_SPEED := 0.25         # Reformation lerp speed
+
+var is_reforming := false
+var reform_targets: Dictionary = {}  # Maps unit → Vector2 target position
+
+func trigger_reformation() -> void:
+    # Called after unit deaths
+    reform_targets.clear()
+    is_reforming = true
+
+    # Calculate radius based on group size
+    var target_radius := SMALL_GROUP_RADIUS
+    if player_units.size() > 120:
+        target_radius = LARGE_GROUP_RADIUS
+    elif player_units.size() > 50:
+        target_radius = MEDIUM_GROUP_RADIUS
+
+    # Assign random position to each unit
+    for unit in player_units:
+        var angle := randf() * TAU
+        var distance := randf() * target_radius
+        reform_targets[unit] = Vector2(cos(angle) * distance, sin(angle) * distance)
 
 func update_formation(delta: float) -> void:
-    # Calculate dynamic crowd radius based on army size
-    var fill_ratio: float = float(player_units.size()) / float(MAX_PLAYER_UNITS)
-    var min_crowd_radius: float = 15.0 + (fill_ratio * 45.0)  # 15px → 60px
-
-    # Slowly pull units toward center if outside minimum radius
+    # Lerp units toward targets
     for unit in player_units:
-        var distance: float = unit.position.length()
-        if distance > min_crowd_radius:
-            unit.position = unit.position.lerp(Vector2.ZERO, FORMATION_REFORM_SPEED * delta * 0.5)
+        if unit in reform_targets:
+            unit.position = unit.position.lerp(reform_targets[unit], REFORM_SPEED * delta)
 ```
 
 **Visual Effect:**
-- Units gradually crowd together after losses
-- Crowd radius scales with army size (15px with few units, 60px with 200 units)
-- Creates natural clustering without forced spiral patterns
-- Prevents overcrowding at center
+- Event-triggered (only on unit death, not continuous)
+- Each unit gets unique random position within target radius
+- Density-based radius prevents overcrowding
+- Creates natural-looking crowds with organic spread
 
 **Gain Units:**
 - Opened barrels: +10 to +300 units (difficulty scaled)
@@ -208,7 +233,7 @@ func _on_area_entered(area: Area2D) -> void:
 ```gdscript
 # scripts/enemy_group_2d.gd
 const FORMATION_RADIUS := 40.0
-const CHASE_SPEED := 100.0
+const CHASE_SPEED := 75.0  # Reduced 25% for balance
 
 var enemy_units: Array[Area2D] = []
 
@@ -252,13 +277,13 @@ func spawn_enemy_units(count: int) -> void:
 1. **Unopened State:**
    - Shows value on top (e.g., "15")
    - Shows bullets remaining as yellow text (e.g., "8")
-   - Collision **damages** player (lose barrel's value in units)
+   - Collision just destroys barrel (no reward/penalty)
 
-2. **Opened State:**
+2. **Opened State (Shot Open):**
    - Bullets counter reaches 0
-   - Green "+15" label
-   - Green sprite tint
-   - Collision **rewards** player with units
+   - **Units given immediately** when shot open
+   - Barrel despawns after rewarding player
+   - No collision interaction needed
 
 **Bullet Requirement Formula (5x Harder):**
 ```gdscript
@@ -286,14 +311,18 @@ func on_projectile_hit() -> void:
         if bullets_remaining <= 0:
             is_open = true
             bullets_remaining = 0
+            give_reward()  # Immediately reward when shot open
         update_display()
+
+func give_reward() -> void:
+    var player := get_tree().get_first_node_in_group("player") as PlayerManager
+    if player:
+        player.add_units(value)
+    queue_free()  # Destroy barrel after giving reward
 
 func _on_body_entered(body: Node2D) -> void:
     if body is PlayerManager:
-        if is_open:
-            body.add_units(value)  # Reward
-        else:
-            body.take_damage(value)  # Penalty!
+        # Collision just destroys barrel (no reward/penalty)
         queue_free()
 ```
 
@@ -378,6 +407,83 @@ func _on_body_entered(body: Node2D) -> void:
 - Medium tier: 0, 10, -20, -50
 - Hard tier: 0, 20, -30, -100
 - Brutal tier: 50, -50, -150, -300 (traps!)
+
+---
+
+## Boss Battle System
+
+**Trigger:** Spawns at 120 seconds when level timer expires
+
+**Boss Properties:**
+```gdscript
+# scripts/boss.gd
+const MAX_HEALTH := 500           # Takes ~500 projectile hits
+const ADVANCE_SPEED := 60.0       # Pixels per second (downward)
+const BOSS_SCALE := 3.0           # 3x size (96-128 pixels)
+const DAMAGE_PER_SECOND := 2.0    # Boss HP loss during collision
+const PLAYER_DAMAGE_PER_SECOND := 10.0  # Player units lost during collision
+```
+
+**Movement:**
+- Spawns at top center (0, -100)
+- Advances straight down at 60 px/s
+- Does not chase player
+- Creates "unstoppable force" tension
+
+**Health System:**
+- 500 HP total
+- Loses 1 HP per projectile hit
+- Shows ProgressBar above sprite (80×10 pixels)
+- White flash on hit for visual feedback
+
+**Continuous Collision Damage:**
+```gdscript
+var is_colliding := false
+
+func _physics_process(delta: float) -> void:
+    position.y += ADVANCE_SPEED * delta
+
+    if is_colliding:
+        # Apply damage to boss
+        current_health -= DAMAGE_PER_SECOND * delta
+
+        # Apply damage to player (probabilistic unit removal)
+        var player_damage := PLAYER_DAMAGE_PER_SECOND * delta
+        var units_to_remove: int = int(player_damage)
+        if randf() < (player_damage - units_to_remove):
+            units_to_remove += 1
+
+        for i in units_to_remove:
+            player.remove_player_unit()
+
+        # Flash boss red during collision
+        apply_collision_flash()
+```
+
+**Collision Mechanics:**
+- **Both take damage continuously** while in contact (not one-time)
+- Boss loses 2 HP per second
+- Player loses 10 units per second
+- Whoever reaches 0 first loses
+- Creates "clash" mechanic requiring sustained engagement
+
+**Entrance Effect:**
+- Time slows to 50% for 1 second (`Engine.time_scale = 0.5`)
+- Smooth lerp back to normal speed over 1 second
+- Affects all movement (background, enemies, projectiles)
+- Creates dramatic Matrix-style entrance
+
+**Defeat:**
+- Scale up + fade out animation (0.8 seconds)
+- Emits `boss_defeated` signal
+- Allows level completion
+- Player wins if boss defeated before collision depletes all units
+
+**Level Completion:**
+- Boss must be defeated for level to complete
+- Screen must also be cleared of enemies/collectibles
+- SpawnManager checks for boss in "boss" group
+- Only emits `level_complete` when boss is gone
 
 ---
 
@@ -499,8 +605,8 @@ const BRUTAL_WEIGHTS := [0.75, 0.15, 0.10] # Enemy onslaught
 **Enemy Sizes by Tier:**
 - Easy: 5, 10, 15 units (small groups)
 - Medium: 15, 25, 40 units (medium groups)
-- Hard: 40, 70, 100 units (large groups)
-- Brutal: 100, 150, 200 units (massive hordes)
+- Hard: 25, 50, 75 units (large groups, reduced for balance)
+- Brutal: 75, 100, 150 units (massive hordes, reduced for balance)
 
 **Barrel Values by Tier:**
 - Easy: 10, 20, 50
@@ -690,15 +796,14 @@ Restart button
 
 ---
 
-**Document Version:** 7.0
-**Last Updated:** 2024-12-11
-**Status:** Unlimited unit accumulation system implemented, 2-minute auto-spawning active
+**Document Version:** 8.0
+**Last Updated:** 2024-12-12
+**Status:** Boss battle system implemented, barrel mechanics refined, code quality improvements
 **Major Changes:**
-- Unlimited unit accumulation (total_unit_count vs rendered units)
-- Individual unit collision with proximity activation
-- 5x harder barrel bullet requirements
-- Gate bullet requirement system (10 bullets per +5)
-- Sidebar UI with pause/stop/restart controls
-- 2-minute wave-based spawning with difficulty scaling
-- Death particles for unit destruction
+- Boss battle at 120 seconds (500 HP, continuous collision damage)
+- Barrel instant-reward system (units given when shot open, not on collision)
+- Enemy speed reduced 25% (75 px/s for balance)
+- Formation reformation redesigned (event-triggered, density-based radius, random positioning)
+- Backfill system (50/frame + 10/death maintains 200 rendered units)
+- Code quality improvements (helper functions, magic numbers eliminated)
 **Next:** Week 3 - Multipliers, particle polish, sound effects

@@ -5,6 +5,7 @@ extends Node2D
 @export var enemy_group_scene: PackedScene
 @export var barrel_scene: PackedScene
 @export var gate_scene: PackedScene
+@export var boss_scene: PackedScene
 
 # Configuration
 const VIEWPORT_WIDTH := 800.0
@@ -13,12 +14,13 @@ const VIEWPORT_HEIGHT := 600.0
 var player: PlayerManager
 var camera: Camera2D
 var background: ScrollingBackground
+var active_boss = null  # Boss reference (dynamically typed)
 
 func _ready() -> void:
 	setup_camera()
 	setup_background()
 	spawn_player()
-	spawn_test_objects()
+	setup_spawn_manager()
 	setup_hud()
 
 func setup_camera() -> void:
@@ -46,7 +48,8 @@ func spawn_player() -> void:
 	player.position = Vector2(0, 500)  # Center X, bottom Y
 	add_child(player)
 
-func spawn_test_objects() -> void:
+func setup_spawn_manager() -> void:
+	"""Setup automatic spawning system for 2-minute levels"""
 	# Load scenes if not assigned
 	if not enemy_group_scene:
 		enemy_group_scene = load("res://scenes/enemies/enemy_group.tscn")
@@ -55,25 +58,16 @@ func spawn_test_objects() -> void:
 	if not gate_scene:
 		gate_scene = load("res://scenes/collectibles/gate.tscn")
 
-	# Spawn enemies at top of screen (negative Y, off-viewport)
-	# They will chase player
-	spawn_enemy(Vector2(-150, -100), 8)
-	spawn_enemy(Vector2(150, -200), 25)
-	spawn_enemy(Vector2(0, -300), 150)
-	spawn_enemy(Vector2(-100, -400), 250)
+	# Create and configure spawn manager
+	var spawn_mgr := SpawnManager.new()
+	spawn_mgr.name = "SpawnManager"
+	spawn_mgr.game_manager = self
+	spawn_mgr.player_manager = player
+	spawn_mgr.level_complete.connect(_on_level_complete)
+	spawn_mgr.boss_incoming.connect(_on_boss_incoming)  # Connect boss spawn
+	add_child(spawn_mgr)
 
-	# Spawn barrels at top of screen
-	# They will scroll straight down
-	spawn_barrel(Vector2(100, -150), 10)
-	spawn_barrel(Vector2(-100, -250), 15)
-	spawn_barrel(Vector2(0, -350), 100)
-	spawn_barrel(Vector2(150, -450), 250)
-
-	# Spawn gates at top of screen
-	# Test neutral, negative, and positive gates
-	spawn_gate(Vector2(200, -300), 0)      # Neutral gate
-	spawn_gate(Vector2(-200, -500), -15)   # Negative gate (trap!)
-	spawn_gate(Vector2(100, -700), -500)     # Positive gate
+	print("SpawnManager initialized - 2 minute level started")
 
 func spawn_enemy(pos: Vector2, units: int) -> void:
 	var enemy := enemy_group_scene.instantiate()
@@ -111,3 +105,50 @@ func setup_hud() -> void:
 
 	canvas_layer.add_child(hud)
 	add_child(canvas_layer)
+
+func _on_boss_incoming() -> void:
+	"""Called when timer hits 120s - spawn boss with slowdown effect"""
+	print("Boss incoming - applying slowdown effect...")
+
+	# Dramatic slowdown to 50% speed
+	Engine.time_scale = 0.5
+
+	# Wait 1 second (in scaled time = 2 real seconds)
+	await get_tree().create_timer(1.0).timeout
+
+	# Gradually restore speed over 1 second
+	var tween := create_tween()
+	tween.tween_property(Engine, "time_scale", 1.0, 1.0)
+
+	# Spawn boss after speed restored
+	await tween.finished
+	spawn_boss()
+
+func spawn_boss() -> void:
+	"""Instantiate and spawn the boss at top center"""
+	# Load boss scene if not assigned
+	if not boss_scene:
+		boss_scene = load("res://scenes/enemies/boss.tscn")
+
+	var boss = boss_scene.instantiate()  # Boss instance
+	boss.position = Vector2(0, -100)  # Top center
+	boss.boss_defeated.connect(_on_boss_defeated)
+	active_boss = boss
+	add_child(boss)
+
+	print("Boss spawned at top of screen!")
+
+func _on_boss_defeated() -> void:
+	"""Called when boss is defeated"""
+	print("BOSS DEFEATED!")
+	active_boss = null
+	# SpawnManager will detect boss is gone and emit level_complete
+
+func _on_level_complete() -> void:
+	"""Called when 2-minute level completes"""
+	# Only completes if boss is defeated
+	if active_boss == null:
+		print("Level Complete! Victory!")
+		# TODO: Show victory screen, transition to next level
+	else:
+		print("Boss still active - waiting for defeat...")
