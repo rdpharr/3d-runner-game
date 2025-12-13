@@ -4,8 +4,8 @@ class_name Gate
 # Movement configuration
 const VALUE_PER_HIT := 5
 const BULLETS_PER_VALUE := 10  # Bullets needed to change value by VALUE_PER_HIT
-const SCROLL_SPEED := 80.0  # Slower than barrels
-const DESPAWN_Y := 700.0
+const SCROLL_SPEED := 144.0  # Pixels per second (80 * 1.8 scaling)
+const DESPAWN_Y := 2580.0  # Below portrait viewport + buffer
 
 # Gate properties
 @export var starting_value := 0  # Can be negative!

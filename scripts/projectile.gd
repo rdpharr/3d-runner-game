@@ -2,8 +2,8 @@ extends Area2D
 class_name Projectile
 
 # Movement configuration
-const SPEED := 200.0  # Pixels per second (upward - negative Y)
-const MAX_DISTANCE := 800.0  # Despawn after traveling this far
+const SPEED := 360.0  # Pixels per second (200 * 1.8 scaling)
+const MAX_DISTANCE := 1440.0  # Despawn distance (800 * 1.8 scaling)
 
 var distance_traveled := 0.0
 
@@ -19,7 +19,7 @@ func _physics_process(delta: float) -> void:
 	distance_traveled += movement
 
 	# Despawn if off-screen or max distance reached
-	if position.y < -50 or distance_traveled > MAX_DISTANCE:
+	if position.y < -90 or distance_traveled > MAX_DISTANCE:  # -50 * 1.8 scaling
 		queue_free()
 
 func _on_area_entered(area: Area2D) -> void:

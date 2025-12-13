@@ -2,8 +2,8 @@ extends Node2D
 class_name Boss
 
 # Configuration
-const BOSS_SCALE := 3.0  # 3x scale (user-adjusted from 4.0)
-const ADVANCE_SPEED := 60.0  # Pixels per second toward player
+const BOSS_SCALE := 3.0  # 3x scale (will scale scene sprites separately)
+const ADVANCE_SPEED := 108.0  # Pixels per second (60 * 1.8 scaling)
 const MAX_HEALTH := 500
 const DAMAGE_PER_SECOND := 2.0  # Boss HP lost per second during collision
 const PLAYER_DAMAGE_PER_SECOND := 10.0  # Player units lost per second during collision

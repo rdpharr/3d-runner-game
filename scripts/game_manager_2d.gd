@@ -8,8 +8,8 @@ extends Node2D
 @export var boss_scene: PackedScene
 
 # Configuration
-const VIEWPORT_WIDTH := 800.0
-const VIEWPORT_HEIGHT := 600.0
+const VIEWPORT_WIDTH := 1080.0
+const VIEWPORT_HEIGHT := 2400.0
 
 var player: PlayerManager
 var camera: Camera2D
@@ -37,7 +37,7 @@ func _process(_delta: float) -> void:
 	# Camera stays fixed - player moves within viewport
 	if camera:
 		camera.position.x = 0
-		camera.position.y = VIEWPORT_HEIGHT / 2.0  # Fixed at center
+		camera.position.y = (VIEWPORT_HEIGHT / 2.0) +100  # Fixed at center
 
 func spawn_player() -> void:
 	# Load scene if not assigned
@@ -45,7 +45,7 @@ func spawn_player() -> void:
 		player_manager_scene = load("res://scenes/player_manager.tscn")
 
 	player = player_manager_scene.instantiate()
-	player.position = Vector2(0, 500)  # Center X, bottom Y
+	player.position = Vector2(0, 2200)  # Center X, near bottom of portrait screen
 	add_child(player)
 
 func setup_spawn_manager() -> void:
@@ -131,7 +131,7 @@ func spawn_boss() -> void:
 		boss_scene = load("res://scenes/enemies/boss.tscn")
 
 	var boss = boss_scene.instantiate()  # Boss instance
-	boss.position = Vector2(0, -100)  # Top center
+	boss.position = Vector2(0, -180)  # Top center (scaled for 1080x2400)
 	boss.boss_defeated.connect(_on_boss_defeated)
 	active_boss = boss
 	add_child(boss)

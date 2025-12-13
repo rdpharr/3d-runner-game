@@ -2,10 +2,10 @@ extends Area2D
 class_name EnemyUnit
 
 # Visual configuration
-const UNIT_SCALE := 1.0  # Native size (32x32)
+const UNIT_SCALE := 2.0  # Native size (32x32)
 
 # Collision configuration
-const COLLISION_RADIUS := 12.0
+const COLLISION_RADIUS := 24.0
 
 # Death animation
 var is_dying := false
@@ -81,7 +81,7 @@ func spawn_death_particles() -> void:
 
 		# Random velocity outward
 		var angle := randf() * TAU
-		var speed := 50.0 + randf() * 50.0  # 50-100 pixels/sec
+		var speed := 75.0 + randf() * 75.0  # 75-150 pixels/sec
 		var velocity := Vector2(cos(angle), sin(angle)) * speed
 
 		# Attach fade script

@@ -2,7 +2,7 @@ extends Node2D
 class_name EnemyGroup
 
 # Movement configuration
-const CHASE_SPEED := 75.0  # Reduced from 100.0 (25% slower for easier gameplay)
+const CHASE_SPEED := 225.0  # Pixels per second
 
 # Physical unit system
 @export var enemy_unit_scene: PackedScene

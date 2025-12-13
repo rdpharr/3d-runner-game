@@ -2,8 +2,8 @@ extends Area2D
 class_name Barrel
 
 # Movement configuration
-const SCROLL_SPEED := 120.0  # Pixels per second
-const DESPAWN_Y := 700.0  # Bottom of screen + buffer
+const SCROLL_SPEED := 216.0  # Pixels per second (120 * 1.8 scaling)
+const DESPAWN_Y := 2580.0  # Below portrait viewport + buffer
 
 # Collectible properties
 @export var value := 15

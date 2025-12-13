@@ -8,7 +8,7 @@ class_name SpawnManager
 # --- TIMING ---
 const LEVEL_DURATION := 120.0  # Seconds (2 minutes)
 const WAVE_INTERVAL := 2.0     # Seconds between spawn waves
-const MIN_SPACING_Y := 150.0   # Minimum vertical spacing between objects
+const MIN_SPACING_Y := 270.0   # Minimum vertical spacing (150 * 1.8 scaling)
 
 # --- DIFFICULTY BREAKPOINTS ---
 const EASY_THRESHOLD := 30     # Units: 1-30 = Easy
@@ -46,10 +46,10 @@ const MAX_ACTIVE_ENEMIES := 8
 const MAX_ACTIVE_COLLECTIBLES := 10
 
 # --- SPAWN POSITIONING ---
-const SPAWN_Y_POSITION := -150.0  # Above screen
-const LANE_LEFT := -200.0
+const SPAWN_Y_POSITION := -270.0  # Above screen (-150 * 1.8 scaling)
+const LANE_LEFT := -360.0  # -200 * 1.8 scaling
 const LANE_CENTER := 0.0
-const LANE_RIGHT := 200.0
+const LANE_RIGHT := 360.0  # 200 * 1.8 scaling
 
 # ============================================
 # END CONFIGURATION

@@ -2,26 +2,26 @@ extends CharacterBody2D
 class_name PlayerManager
 
 # Movement configuration
-const PLAYABLE_WIDTH := 600.0  # World units (-300 to +300)
-const PLAYER_Y_POSITION := 500.0  # Fixed at bottom of screen
-const HORIZONTAL_SPEED := 80.0  # Pixels per second (matches scroll speed)
+const PLAYABLE_WIDTH := 1080.0  # Full screen width in portrait (-540 to +540)
+const PLAYER_Y_POSITION := 2200.0  # Fixed near bottom of portrait screen
+const HORIZONTAL_SPEED := 144.0  # Pixels per second (80 * 1.8 scaling)
 
 # Physical unit system
 @export var player_unit_scene: PackedScene
 @export var starting_units := 15
 var player_units: Array[Area2D] = []  # Rendered units (max 200)
 var total_unit_count := 0  # Total units including overflow (unlimited)
-const FORMATION_RADIUS := 50.0  # Pixels for circular swarm (doubled for 2x larger units)
+const FORMATION_RADIUS := 90.0  # Pixels for circular swarm (50 * 1.8 scaling)
 const MAX_PLAYER_UNITS := 200  # Memory management cap
-const COLLISION_ACTIVATION_DISTANCE := 150.0  # Proximity for collision activation
+const COLLISION_ACTIVATION_DISTANCE := 270.0  # Proximity for collision activation (150 * 1.8)
 
 # Reformation system
 var is_reforming := false
 var reform_targets: Dictionary = {}  # Maps unit -> target position
 const REFORM_SPEED := 0.25  # Slow, consistent reformation speed
-const SMALL_GROUP_RADIUS := 50.0  # 1-50 units
-const MEDIUM_GROUP_RADIUS := 65.0  # 51-120 units
-const LARGE_GROUP_RADIUS := 55.0  # 121+ units
+const SMALL_GROUP_RADIUS := 90.0  # 1-50 units (50 * 1.8)
+const MEDIUM_GROUP_RADIUS := 117.0  # 51-120 units (65 * 1.8)
+const LARGE_GROUP_RADIUS := 99.0  # 121+ units (55 * 1.8)
 
 # Backfill constants
 const BACKFILL_PER_FRAME := 50  # Units to spawn per frame in _process()
@@ -30,9 +30,9 @@ const REFORM_DISTANCE_TOLERANCE := 2.0  # Pixels - units closer than this are "i
 
 # Projectile system
 const FIRE_RATE := 0.5  # Seconds between shots
-const PROJECTILE_WIDTH := 8.0  # Pixels
+const PROJECTILE_WIDTH := 14.0  # Pixels (8 * 1.8, rounded to 14)
 const WAVE_DELAY := 0.1  # Seconds between waves
-const MAX_PROJECTILES_MULTIPLIER := 5.0  # Max projectiles = 5 × (width / 8)
+const MAX_PROJECTILES_MULTIPLIER := 4.0  # Max projectiles = 4 × (width / 8)
 @export var projectile_scene: PackedScene
 var fire_timer := 0.0
 var pending_waves: Array[Array] = []  # Queue of projectile data arrays
@@ -58,10 +58,10 @@ func _ready() -> void:
 	# Create floating count label
 	count_label = Label.new()
 	count_label.name = "CountLabel"
-	count_label.position = Vector2(0, -50)
+	count_label.position = Vector2(0, -90)  # -50 * 1.8 scaling
 	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	count_label.add_theme_font_size_override("font_size", 32)
+	count_label.add_theme_font_size_override("font_size", 58)  # 32 * 1.8 scaling
 	count_label.modulate = Color.WHITE
 	count_label.z_index = 10
 	add_child(count_label)
